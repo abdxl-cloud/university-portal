@@ -1,0 +1,215 @@
+/* Multi-role staff data — advisers, HOD, dean, exams, bursary, hostel, registry, ICT.
+   Reuses window.DATA + window.STAFF_DATA where possible. */
+(function () {
+  const fmt = (n) => "\u20a6" + n.toLocaleString("en-NG");
+  const NAMES = [
+    "Chukwuemeka Obi", "Aisha Bello", "Tobi Adeyemi", "Ngozi Eze", "Ibrahim Musa",
+    "Fatima Sani", "Daniel Okoro", "Blessing Akpan", "Yusuf Lawal", "Chiamaka Nwankwo",
+    "Samuel Ojo", "Hauwa Abubakar", "Emeka Nnaji", "Grace Effiong", "Abdul Yakubu",
+    "Zainab Aliyu", "Peter Danladi", "Funke Adebayo", "Uche Okafor", "Maryam Garba",
+    "Olumide Bankole", "Halima Suleiman", "Victor Agboola", "Rita Onyeka", "Bashir Mohammed",
+    "Esther Udo", "Kelvin Asuquo", "Amina Idris", "Joshua Bamidele", "Patience Etim",
+  ];
+  const init = (n) => n.split(" ").map((x) => x[0]).slice(0, 2).join("");
+  const pick = (i) => NAMES[i % NAMES.length];
+
+  // ---- people behind each role ----
+  const PEOPLE = {
+    lecturer: window.STAFF_DATA ? window.STAFF_DATA.STAFF : null,
+    adviser: { name: "Dr. Chioma Madu", first: "Chioma", initials: "CM", title: "Level Adviser", role: "300L Adviser · Computer Science", staffId: "FUT/STF/CSC/0288", department: "Computer Science", faculty: "Faculty of Computing", email: "c.madu@futech.edu.ng", phone: "+234 803 221 7788", office: "CS Block, Rm 11", area: "Human–Computer Interaction" },
+    hod: { name: "Prof. Kunle Adewale", first: "Kunle", initials: "KA", title: "Head of Department", role: "HOD · Computer Science", staffId: "FUT/STF/CSC/0102", department: "Computer Science", faculty: "Faculty of Computing", email: "k.adewale@futech.edu.ng", phone: "+234 805 990 1122", office: "CS Block, Rm 02", area: "Systems & Networks" },
+    dean: { name: "Prof. Adaeze Nwachukwu", first: "Adaeze", initials: "AN", title: "Dean of Faculty", role: "Dean · Faculty of Computing", staffId: "FUT/STF/COM/0007", department: "Dean's Office", faculty: "Faculty of Computing", email: "dean.computing@futech.edu.ng", phone: "+234 802 776 4400", office: "Faculty Block, Rm 1", area: "Artificial Intelligence" },
+    exams: { name: "Mr. Sunday Eke", first: "Sunday", initials: "SE", title: "Exams & Records Officer", role: "Exams & Records", staffId: "FUT/STF/EXM/0451", department: "Exams & Records", faculty: "Registry", email: "s.eke@futech.edu.ng", phone: "+234 806 332 9087", office: "Records Hall, Rm 8", area: "Academic Records" },
+    bursary: { name: "Mrs. Halima Bello", first: "Halima", initials: "HB", title: "Bursary Officer", role: "Bursary · Student Accounts", staffId: "FUT/STF/BUR/0319", department: "Bursary", faculty: "Finance", email: "h.bello@futech.edu.ng", phone: "+234 803 010 5566", office: "Bursary Block, Rm 4", area: "Student Accounts" },
+    librarian: window.CAMPUS_DATA ? window.CAMPUS_DATA.PEOPLE.librarian : null,
+    clinic: window.CAMPUS_DATA ? window.CAMPUS_DATA.PEOPLE.clinic : null,
+    hostel: { name: "Mr. Tunde Afolabi", first: "Tunde", initials: "TA", title: "Hostel Officer", role: "Student Affairs · Accommodation", staffId: "FUT/STF/SAF/0277", department: "Student Affairs", faculty: "Student Affairs", email: "t.afolabi@futech.edu.ng", phone: "+234 805 447 2231", office: "Student Affairs, Rm 2", area: "Accommodation" },
+    registry: { name: "Mrs. Patricia Okon", first: "Patricia", initials: "PO", title: "Asst. Registrar", role: "Registry · Admissions", staffId: "FUT/STF/REG/0061", department: "Registry", faculty: "Registry", email: "p.okon@futech.edu.ng", phone: "+234 802 668 1190", office: "Registry, Rm 12", area: "Admissions & Records" },
+    ict: { name: "Engr. David Umeh", first: "David", initials: "DU", title: "ICT Administrator", role: "ICT · System Administrator", staffId: "FUT/STF/ICT/0015", department: "ICT Directorate", faculty: "ICT", email: "d.umeh@futech.edu.ng", phone: "+234 806 554 7781", office: "ICT Centre, Rm 1", area: "Systems Administration" },
+  };
+
+  // ---- Level Adviser: 300L CSC advisees with registration submissions ----
+  const ADVISEES = [];
+  for (let i = 0; i < 20; i++) {
+    const name = pick(i);
+    const units = [15, 17, 18, 19, 20, 21, 22][i % 7];
+    const carryover = i % 5 === 0;
+    const feesPaid = i % 7 !== 0;
+    const submitted = i % 6 !== 0;
+    ADVISEES.push({
+      id: "adv" + i,
+      matric: "FUT/2022/CSC/" + (10400 + i * 3),
+      name, initials: init(name),
+      units, courses: 6 + (i % 3), carryover, feesPaid,
+      submitted,
+      baseStatus: submitted ? (i % 4 === 1 ? "approved" : "pending") : "not-submitted",
+      flags: [carryover ? "Has carryover (CSC 299)" : null, !feesPaid ? "School fees not paid" : null, units > 24 ? "Over unit load" : null].filter(Boolean),
+    });
+  }
+
+  // ---- HOD: department course → lecturer assignment ----
+  const STAFF_POOL = ["Dr. E. Bassey", "Prof. K. Adewale", "Dr. F. Okonkwo", "Dr. M. Sani", "Mr. T. Balogun", "Mrs. J. Eze", "Dr. P. Nwosu", "Dr. C. Madu", "Dr. A. Ibrahim", "Unassigned"];
+  const HOD_COURSES = [
+    { code: "CSC 301", title: "Data Structures & Algorithms", level: "300L", units: 3, lecturer: "Dr. E. Bassey" },
+    { code: "CSC 303", title: "Operating Systems", level: "300L", units: 3, lecturer: "Prof. K. Adewale" },
+    { code: "CSC 305", title: "Database Management Systems", level: "300L", units: 3, lecturer: "Dr. F. Okonkwo" },
+    { code: "CSC 307", title: "Computer Architecture", level: "300L", units: 2, lecturer: "Dr. M. Sani" },
+    { code: "CSC 205", title: "Data Communications", level: "200L", units: 2, lecturer: "Dr. F. Okonkwo" },
+    { code: "CSC 411", title: "Big Data Analytics", level: "400L", units: 3, lecturer: "Dr. F. Okonkwo" },
+    { code: "CSC 201", title: "Computer Programming I", level: "200L", units: 3, lecturer: "Mr. T. Balogun" },
+    { code: "CSC 409", title: "Machine Learning", level: "400L", units: 3, lecturer: "Unassigned" },
+  ];
+
+  // ---- HOD result-approval queue (results submitted by lecturers) ----
+  const HOD_RESULTS = [
+    { code: "CSC 305", title: "Database Management Systems", level: "300L", lecturer: "Dr. F. Okonkwo", students: 14, passRate: 86, submittedAt: "Dec 16", baseStatus: "pending" },
+    { code: "CSC 301", title: "Data Structures & Algorithms", level: "300L", lecturer: "Dr. E. Bassey", students: 38, passRate: 79, submittedAt: "Dec 15", baseStatus: "pending" },
+    { code: "CSC 411", title: "Big Data Analytics", level: "400L", lecturer: "Dr. F. Okonkwo", students: 11, passRate: 91, submittedAt: "Dec 14", baseStatus: "pending" },
+    { code: "CSC 205", title: "Data Communications", level: "200L", lecturer: "Dr. F. Okonkwo", students: 16, passRate: 75, submittedAt: "Dec 12", baseStatus: "approved" },
+  ];
+
+  // ---- Dean: departments + faculty-level result approvals ----
+  const DEAN_DEPTS = [
+    { dept: "Computer Science", hod: "Prof. K. Adewale", students: 1240, staff: 28, results: "In review" },
+    { dept: "Software Engineering", hod: "Dr. B. Idowu", students: 870, staff: 19, results: "Submitted" },
+    { dept: "Information Technology", hod: "Dr. R. Hassan", students: 760, staff: 17, results: "Approved" },
+    { dept: "Cyber Security", hod: "Dr. N. Achebe", students: 540, staff: 14, results: "In review" },
+  ];
+  const DEAN_RESULTS = [
+    { code: "CSC 305", dept: "Computer Science", level: "300L", students: 14, hodAt: "Dec 17", baseStatus: "pending" },
+    { code: "SEN 301", dept: "Software Engineering", level: "300L", students: 52, hodAt: "Dec 16", baseStatus: "pending" },
+    { code: "ITC 201", dept: "Information Technology", level: "200L", students: 61, hodAt: "Dec 15", baseStatus: "approved" },
+    { code: "CYB 401", dept: "Cyber Security", level: "400L", students: 33, hodAt: "Dec 16", baseStatus: "pending" },
+  ];
+
+  // ---- Exams & Records: ready-to-publish + transcripts ----
+  const EXAM_PUBLISH = [
+    { code: "ITC 201", title: "Web Technologies", dept: "Information Technology", level: "200L", students: 61, senateAt: "Dec 19", baseStatus: "ready" },
+    { code: "CSC 205", title: "Data Communications", dept: "Computer Science", level: "200L", students: 16, senateAt: "Dec 18", baseStatus: "published" },
+    { code: "SEN 301", title: "Software Architecture", dept: "Software Engineering", level: "300L", students: 52, senateAt: "Dec 19", baseStatus: "ready" },
+  ];
+  const TRANSCRIPTS = [];
+  for (let i = 0; i < 8; i++) {
+    const name = pick(i + 4);
+    TRANSCRIPTS.push({
+      id: "tr" + i, name, initials: init(name),
+      matric: "FUT/" + (2016 + (i % 5)) + "/CSC/" + (9000 + i * 11),
+      destination: ["University of Lagos", "MTN Nigeria", "Chevron", "Univ. of Toronto", "NYSC", "Shell Petroleum", "Univ. of Ibadan", "Andela"][i],
+      copies: 1 + (i % 3), paid: i % 4 !== 0,
+      baseStatus: i % 3 === 0 ? "processing" : "pending",
+    });
+  }
+
+  // ---- Bursary: payment verification + debtors ----
+  const PAYMENTS = [];
+  const ITEMS = ["School Fees", "Acceptance Fee", "Hostel Fee", "Transcript", "SIWES Levy", "ID Card"];
+  const CHANNELS = ["Paystack", "Bank Transfer", "Remita", "USSD"];
+  for (let i = 0; i < 12; i++) {
+    const name = pick(i + 2);
+    const amt = [109000, 25000, 45000, 7500, 6000, 2000][i % 6];
+    PAYMENTS.push({
+      id: "pay" + i, ref: "TRX-" + (728100 + i * 137).toString(36).toUpperCase(),
+      name, matric: "FUT/2022/CSC/" + (10500 + i * 4),
+      item: ITEMS[i % 6], amount: amt, channel: CHANNELS[i % 4],
+      date: "Dec " + (4 + i),
+      baseStatus: i % 5 === 0 ? "flagged" : i % 3 === 0 ? "confirmed" : "pending",
+    });
+  }
+  const DEBTORS = [];
+  for (let i = 0; i < 9; i++) {
+    const name = pick(i + 11);
+    DEBTORS.push({
+      id: "deb" + i, name, initials: init(name),
+      matric: "FUT/2022/CSC/" + (10700 + i * 5),
+      level: ["100L", "200L", "300L", "400L"][i % 4],
+      owed: [109000, 54500, 87500, 45000][i % 4],
+      item: ["Full school fees", "Part payment balance", "School fees", "Hostel fee"][i % 4],
+    });
+  }
+  const FEE_STRUCTURE = [
+    { level: "100 Level", fresh: 134000, returning: null },
+    { level: "200 Level", fresh: null, returning: 109000 },
+    { level: "300 Level", fresh: null, returning: 109000 },
+    { level: "400 Level", fresh: null, returning: 112500 },
+  ];
+
+  // ---- Hostel Officer: applications + inventory (reuse DATA.HOSTELS) ----
+  const HOSTEL_APPS = [];
+  for (let i = 0; i < 10; i++) {
+    const name = pick(i + 6);
+    HOSTEL_APPS.push({
+      id: "ha" + i, name, initials: init(name),
+      matric: "FUT/2022/CSC/" + (10800 + i * 3),
+      level: ["100L", "200L", "300L", "400L"][i % 4],
+      gender: i % 2 === 0 ? "Female" : "Male",
+      hall: i % 2 === 0 ? "Queen Amina Hall" : "Saint's Hall",
+      feesPaid: i % 6 !== 0,
+      baseStatus: i % 4 === 1 ? "allocated" : "pending",
+    });
+  }
+  const HOSTEL_STATS = [
+    { hall: "Queen Amina Hall", gender: "Female", total: 320, taken: 274 },
+    { hall: "Flora Shaw Hall", gender: "Female", total: 240, taken: 188 },
+    { hall: "Saint's Hall", gender: "Male", total: 400, taken: 351 },
+    { hall: "Nnamdi Hall", gender: "Male", total: 360, taken: 360 },
+  ];
+
+  // ---- Registry / Admissions: applicants ----
+  const APPLICANTS = [];
+  const PROGRAMMES = ["B.Sc. Computer Science", "B.Eng. Software Engineering", "B.Sc. Cyber Security", "B.Sc. Information Technology"];
+  for (let i = 0; i < 12; i++) {
+    const name = pick(i + 9);
+    APPLICANTS.push({
+      id: "app" + i, name, initials: init(name),
+      jamb: (20419000 + i * 311) + "AF",
+      programme: PROGRAMMES[i % 4],
+      utme: 198 + ((i * 17) % 90),
+      oLevel: i % 5 === 0 ? "4 credits" : "5+ credits",
+      docs: i % 7 === 0 ? "Incomplete" : "Complete",
+      baseStatus: i % 4 === 2 ? "admitted" : "pending",
+    });
+  }
+
+  // ---- ICT / Super Admin: users + sessions ----
+  const USERS = Object.keys(PEOPLE).filter((k) => PEOPLE[k]).map((k, i) => ({
+    id: "usr-" + k, name: PEOPLE[k].name, role: PEOPLE[k].title,
+    dept: PEOPLE[k].department, last: ["2h ago", "1d ago", "5m ago", "3d ago", "just now", "1h ago", "yesterday", "4h ago"][i % 8],
+    baseStatus: "active",
+  }));
+  USERS.push({ id: "usr-stu", name: "Adaeze N. Okeke", role: "Student", dept: "Computer Science", last: "10m ago", baseStatus: "active" });
+  USERS.push({ id: "usr-sus", name: "Idris Bala", role: "Student", dept: "Cyber Security", last: "12d ago", baseStatus: "suspended" });
+  const SESSIONS = [
+    { name: "2025/2026", state: "Active", reg: "Open", fees: "Open" },
+    { name: "2024/2025", state: "Archived", reg: "Closed", fees: "Closed" },
+    { name: "2023/2024", state: "Archived", reg: "Closed", fees: "Closed" },
+  ];
+  const AUDIT = [
+    { who: "Dr. F. Okonkwo", action: "Submitted CSC 305 results", time: "2h ago" },
+    { who: "Prof. K. Adewale", action: "Approved CSC 411 results", time: "5h ago" },
+    { who: "Mrs. H. Bello", action: "Confirmed payment TRX-9F2A1", time: "Yesterday" },
+    { who: "Mr. T. Afolabi", action: "Allocated bed A204 to FUT/2022/CSC/10428", time: "Yesterday" },
+    { who: "System", action: "Nightly backup completed", time: "2 days ago" },
+  ];
+
+  function notif(role) {
+    const m = {
+      adviser: [{ id: "a1", icon: "book", tone: "warning", title: "11 registrations awaiting approval", body: "300L advisees have submitted course forms for review.", time: "1h ago", unread: true }],
+      hod: [{ id: "h1", icon: "chart", tone: "warning", title: "3 result sheets to approve", body: "Lecturers have submitted results for your review.", time: "2h ago", unread: true }, { id: "h2", icon: "book", tone: "accent", title: "CSC 409 still unassigned", body: "Assign a lecturer before the semester begins.", time: "Yesterday", unread: true }],
+      dean: [{ id: "d1", icon: "chart", tone: "warning", title: "Faculty result approvals pending", body: "3 departments awaiting your sign-off.", time: "3h ago", unread: true }],
+      exams: [{ id: "e1", icon: "chart", tone: "accent", title: "2 result sheets ready to publish", body: "Senate-approved results can be released to students.", time: "1h ago", unread: true }, { id: "e2", icon: "doc", tone: "warning", title: "6 transcript requests", body: "Pending processing in the records queue.", time: "Yesterday", unread: true }],
+      bursary: [{ id: "b1", icon: "wallet", tone: "warning", title: "8 payments to verify", body: "Unconfirmed transactions need manual verification.", time: "30m ago", unread: true }],
+      hostel: [{ id: "ho1", icon: "bed", tone: "warning", title: "7 allocation requests", body: "Students have applied for bed spaces.", time: "1h ago", unread: true }],
+      registry: [{ id: "r1", icon: "doc", tone: "warning", title: "9 applications to screen", body: "New admission applications awaiting review.", time: "2h ago", unread: true }],
+      ict: [{ id: "i1", icon: "shield", tone: "accent", title: "System healthy", body: "All services operational. Nightly backup OK.", time: "4h ago", unread: false }],
+    };
+    return m[role] || [];
+  }
+
+  window.ROLE_DATA = {
+    fmt, init, PEOPLE, notif,
+    ADVISEES, STAFF_POOL, HOD_COURSES, HOD_RESULTS,
+    DEAN_DEPTS, DEAN_RESULTS, EXAM_PUBLISH, TRANSCRIPTS,
+    PAYMENTS, DEBTORS, FEE_STRUCTURE, HOSTEL_APPS, HOSTEL_STATS,
+    APPLICANTS, USERS, SESSIONS, AUDIT,
+  };
+})();
