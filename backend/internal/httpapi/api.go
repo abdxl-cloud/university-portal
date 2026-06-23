@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"formbuilder/backend/internal/academic"
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/config"
 	"formbuilder/backend/internal/httpapi/middleware"
@@ -20,10 +21,11 @@ import (
 type API struct {
 	cfg     config.Config
 	logger  *slog.Logger
-	auth    *auth.Service
-	portal  *portal.Store
-	library *library.Repo
-	ident   *identity.Signer
+	auth     *auth.Service
+	portal   *portal.Store
+	library  *library.Repo
+	academic *academic.Repo
+	ident    *identity.Signer
 }
 
 type Options struct {
@@ -44,10 +46,11 @@ func New(opts Options) *API {
 	return &API{
 		cfg:     opts.Config,
 		logger:  logger,
-		auth:    auth.NewService(opts.Pool, sessionTTL),
-		portal:  portal.NewDemoStore(),
-		library: library.NewRepo(opts.Pool),
-		ident:   identity.New(opts.Config.IdentitySecret),
+		auth:     auth.NewService(opts.Pool, sessionTTL),
+		portal:   portal.NewDemoStore(),
+		library:  library.NewRepo(opts.Pool),
+		academic: academic.NewRepo(opts.Pool),
+		ident:    identity.New(opts.Config.IdentitySecret),
 	}
 }
 

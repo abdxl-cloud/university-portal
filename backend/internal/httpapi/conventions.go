@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -28,6 +29,20 @@ func bind(w http.ResponseWriter, r *http.Request, dst any) bool {
 		}
 	}
 	return true
+}
+
+// serveList is the standard read handler: parse pagination, call a repo list
+// method returning (items, total, err), and write the {data, page} envelope.
+func serveList[T any](a *API, w http.ResponseWriter, r *http.Request, name string, fetch func(ctx context.Context, limit, offset int) ([]T, int, error)) {
+	page := parsePage(r)
+	items, total, err := fetch(r.Context(), page.Limit, page.Offset)
+	if err != nil {
+		a.logger.Error("list "+name, "error", err)
+		respond.Err(w, err)
+		return
+	}
+	page.Total = total
+	respond.List(w, items, page)
 }
 
 // writeMutation is the standard terminator for mutating handlers: it maps a

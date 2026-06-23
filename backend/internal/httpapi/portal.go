@@ -11,27 +11,27 @@ func (a *API) portalDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) academicSessions(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"sessions": a.portal.Sessions()})
+	serveList(a, w, r, "sessions", a.academic.Sessions)
 }
 
 func (a *API) faculties(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"faculties": a.portal.Faculties()})
+	serveList(a, w, r, "faculties", a.academic.Faculties)
 }
 
 func (a *API) departments(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"departments": a.portal.Departments()})
+	serveList(a, w, r, "departments", a.academic.Departments)
 }
 
 func (a *API) programs(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"programs": a.portal.Programs()})
+	serveList(a, w, r, "programs", a.academic.Programs)
 }
 
 func (a *API) students(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"students": a.portal.Students()})
+	serveList(a, w, r, "students", a.academic.Students)
 }
 
 func (a *API) staff(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"staff": a.portal.Staff()})
+	serveList(a, w, r, "staff", a.academic.Staff)
 }
 
 func (a *API) invoices(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func (a *API) payments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) courses(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"courses": a.portal.Courses()})
+	serveList(a, w, r, "courses", a.academic.Courses)
 }
 
 func (a *API) courseRegistrations(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,7 @@ func (a *API) courseRegistrations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) results(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"results": a.portal.Results()})
+	serveList(a, w, r, "results", a.academic.Results)
 }
 
 func (a *API) hostelHalls(w http.ResponseWriter, r *http.Request) {
