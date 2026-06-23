@@ -2,12 +2,11 @@ package httpapi
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
+	"formbuilder/backend/internal/apperr"
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/httpapi/respond"
-	"formbuilder/backend/internal/portal"
 )
 
 type payInvoiceRequest struct {
@@ -36,8 +35,22 @@ type libraryBookRequest struct {
 	BookID    string `json:"bookId"`
 }
 
+func (r libraryBookRequest) Validate() error {
+	if r.StudentID == "" || r.BookID == "" {
+		return apperr.Invalid("studentId and bookId are required")
+	}
+	return nil
+}
+
 type idRequest struct {
 	ID string `json:"id"`
+}
+
+func (r idRequest) Validate() error {
+	if r.ID == "" {
+		return apperr.Invalid("id is required")
+	}
+	return nil
 }
 
 type appointmentRequest struct {
@@ -112,45 +125,6 @@ func (a *API) decideHostelApplication(w http.ResponseWriter, r *http.Request) {
 	writeMutation(w, err, map[string]any{"application": app})
 }
 
-func (a *API) borrowBook(w http.ResponseWriter, r *http.Request) {
-	user, ok := a.requireRole(w, r, "student", "librarian", "ict")
-	if !ok {
-		return
-	}
-	var req libraryBookRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	loan, err := a.portal.BorrowBook(req.StudentID, req.BookID, user.ID)
-	writeMutation(w, err, map[string]any{"loan": loan})
-}
-
-func (a *API) reserveBook(w http.ResponseWriter, r *http.Request) {
-	user, ok := a.requireRole(w, r, "student", "librarian", "ict")
-	if !ok {
-		return
-	}
-	var req libraryBookRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	reservation, err := a.portal.ReserveBook(req.StudentID, req.BookID, user.ID)
-	writeMutation(w, err, map[string]any{"reservation": reservation})
-}
-
-func (a *API) returnLoan(w http.ResponseWriter, r *http.Request) {
-	user, ok := a.requireRole(w, r, "student", "librarian", "ict")
-	if !ok {
-		return
-	}
-	var req idRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	loan, err := a.portal.ReturnLoan(req.ID, user.ID)
-	writeMutation(w, err, map[string]any{"loan": loan})
-}
-
 func (a *API) bookAppointment(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "student", "clinic", "ict")
 	if !ok {
@@ -214,21 +188,4 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, out any) bool {
 		return false
 	}
 	return true
-}
-
-func writeMutation(w http.ResponseWriter, err error, body any) {
-	if err == nil {
-		respond.JSON(w, http.StatusOK, body)
-		return
-	}
-	switch {
-	case errors.Is(err, portal.ErrNotFound):
-		respond.Error(w, http.StatusNotFound, "resource not found")
-	case errors.Is(err, portal.ErrInvalidAction):
-		respond.Error(w, http.StatusBadRequest, "invalid action")
-	case errors.Is(err, portal.ErrUnavailable):
-		respond.Error(w, http.StatusConflict, "resource unavailable")
-	default:
-		respond.Error(w, http.StatusInternalServerError, "operation failed")
-	}
 }

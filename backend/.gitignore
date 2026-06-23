@@ -3,5 +3,4 @@
 *.test
 coverage.out
 tmp/
-internal/db/
 

@@ -15,6 +15,7 @@ type Config struct {
 	AllowedOrigins  []string
 	AccessTokenTTL  string
 	RefreshTokenTTL string
+	IdentitySecret  string
 }
 
 func Load() Config {
@@ -27,6 +28,7 @@ func Load() Config {
 		AllowedOrigins:  csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:4173,http://localhost:4173"),
 		AccessTokenTTL:  env("ACCESS_TOKEN_TTL", "15m"),
 		RefreshTokenTTL: env("REFRESH_TOKEN_TTL", "168h"),
+		IdentitySecret:  env("IDENTITY_SECRET", "dev-identity-secret-change-me"),
 	}
 }
 

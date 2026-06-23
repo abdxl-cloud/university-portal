@@ -163,6 +163,7 @@ type LibraryBook struct {
 	Category  string `json:"category"`
 	Year      int    `json:"year"`
 	CallNo    string `json:"callNo"`
+	ISBN      string `json:"isbn,omitempty"`
 	Copies    int    `json:"copies"`
 	Available int    `json:"available"`
 }

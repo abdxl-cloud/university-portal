@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS scan_events;
+ALTER TABLE library_books DROP COLUMN IF EXISTS isbn;

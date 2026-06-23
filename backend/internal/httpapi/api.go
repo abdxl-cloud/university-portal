@@ -1,27 +1,35 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/config"
 	"formbuilder/backend/internal/httpapi/middleware"
 	"formbuilder/backend/internal/httpapi/respond"
+	"formbuilder/backend/internal/identity"
+	"formbuilder/backend/internal/library"
 	"formbuilder/backend/internal/portal"
 )
 
 type API struct {
-	cfg    config.Config
-	logger *slog.Logger
-	auth   *auth.Service
-	portal *portal.Store
+	cfg     config.Config
+	logger  *slog.Logger
+	auth    *auth.Service
+	portal  *portal.Store
+	library *library.Repo
+	ident   *identity.Signer
 }
 
 type Options struct {
 	Config config.Config
 	Logger *slog.Logger
+	Pool   *pgxpool.Pool
 }
 
 func New(opts Options) *API {
@@ -29,7 +37,24 @@ func New(opts Options) *API {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &API{cfg: opts.Config, logger: logger, auth: auth.NewService(), portal: portal.NewDemoStore()}
+	sessionTTL, err := time.ParseDuration(opts.Config.RefreshTokenTTL)
+	if err != nil {
+		sessionTTL = 168 * time.Hour
+	}
+	return &API{
+		cfg:     opts.Config,
+		logger:  logger,
+		auth:    auth.NewService(opts.Pool, sessionTTL),
+		portal:  portal.NewDemoStore(),
+		library: library.NewRepo(opts.Pool),
+		ident:   identity.New(opts.Config.IdentitySecret),
+	}
+}
+
+// CleanupExpiredSessions prunes expired session rows. Intended to be called
+// periodically by the process owner (see cmd/api).
+func (a *API) CleanupExpiredSessions(ctx context.Context) (int64, error) {
+	return a.auth.CleanupExpired(ctx)
 }
 
 func (a *API) Routes() http.Handler {
@@ -65,11 +90,17 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/hostels/applications", a.applyHostel)
 	mux.HandleFunc("PATCH /api/v1/hostels/applications/decision", a.decideHostelApplication)
 	mux.HandleFunc("GET /api/v1/library/books", a.libraryBooks)
+	mux.HandleFunc("POST /api/v1/library/books", a.createBook)
+	mux.HandleFunc("GET /api/v1/library/books/lookup", a.lookupBook)
 	mux.HandleFunc("POST /api/v1/library/loans", a.borrowBook)
 	mux.HandleFunc("GET /api/v1/library/loans", a.libraryLoans)
+	mux.HandleFunc("POST /api/v1/library/loans/scan", a.scanCheckout)
+	mux.HandleFunc("POST /api/v1/library/loans/return-scan", a.scanReturn)
 	mux.HandleFunc("PATCH /api/v1/library/loans/return", a.returnLoan)
 	mux.HandleFunc("GET /api/v1/library/reservations", a.libraryReservations)
 	mux.HandleFunc("POST /api/v1/library/reservations", a.reserveBook)
+	mux.HandleFunc("GET /api/v1/identity/qr", a.identityQR)
+	mux.HandleFunc("GET /api/v1/verify/{token}", a.verifyToken)
 	mux.HandleFunc("GET /api/v1/clinic/patients", a.patientRecords)
 	mux.HandleFunc("POST /api/v1/clinic/appointments", a.bookAppointment)
 	mux.HandleFunc("GET /api/v1/clinic/appointments", a.clinicAppointments)

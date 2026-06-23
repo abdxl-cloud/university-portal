@@ -1,15 +1,18 @@
 package portal
 
 import (
-	"errors"
 	"fmt"
 	"time"
+
+	"formbuilder/backend/internal/apperr"
 )
 
+// These alias the canonical apperr kinds so the in-memory demo store and the
+// HTTP error mapping share one error vocabulary.
 var (
-	ErrNotFound      = errors.New("resource not found")
-	ErrInvalidAction = errors.New("invalid action")
-	ErrUnavailable   = errors.New("resource unavailable")
+	ErrNotFound      = apperr.ErrNotFound
+	ErrInvalidAction = apperr.ErrInvalid
+	ErrUnavailable   = apperr.ErrUnavailable
 )
 
 func (s *Store) PayInvoice(invoiceID, channel, actorID string) (Payment, error) {

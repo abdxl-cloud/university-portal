@@ -28,7 +28,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.auth.Login(strings.TrimSpace(req.Identifier), req.Password)
+	token, user, err := a.auth.Login(r.Context(), strings.TrimSpace(req.Identifier), req.Password)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			respond.Error(w, http.StatusUnauthorized, "invalid identifier or password")
@@ -40,9 +40,9 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond.JSON(w, http.StatusOK, loginResponse{
-		AccessToken: session.Token,
+		AccessToken: token,
 		TokenType:   "Bearer",
-		User:        session.User,
+		User:        user,
 	})
 }
 
@@ -60,7 +60,9 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusUnauthorized, "missing bearer token")
 		return
 	}
-	a.auth.Logout(token)
+	if err := a.auth.Logout(r.Context(), token); err != nil {
+		a.logger.Error("logout failed", "error", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -71,7 +73,7 @@ func (a *API) userFromRequest(w http.ResponseWriter, r *http.Request) (auth.User
 		return auth.User{}, false
 	}
 
-	user, err := a.auth.UserByToken(token)
+	user, err := a.auth.UserByToken(r.Context(), token)
 	if err != nil {
 		respond.Error(w, http.StatusUnauthorized, "invalid bearer token")
 		return auth.User{}, false

@@ -70,18 +70,6 @@ func (a *API) hostelApplications(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, map[string]any{"applications": a.portal.HostelApplications()})
 }
 
-func (a *API) libraryBooks(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"books": a.portal.LibraryBooks()})
-}
-
-func (a *API) libraryLoans(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"loans": a.portal.LibraryLoans()})
-}
-
-func (a *API) libraryReservations(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"reservations": a.portal.LibraryReservations()})
-}
-
 func (a *API) patientRecords(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, map[string]any{"patients": a.portal.PatientRecords()})
 }
