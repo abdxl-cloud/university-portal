@@ -12,6 +12,7 @@ import (
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/config"
 	"formbuilder/backend/internal/fees"
+	"formbuilder/backend/internal/hostels"
 	"formbuilder/backend/internal/httpapi/middleware"
 	"formbuilder/backend/internal/httpapi/respond"
 	"formbuilder/backend/internal/identity"
@@ -29,6 +30,7 @@ type API struct {
 	academic *academic.Repo
 	fees     *fees.Repo
 	regs     *registrations.Repo
+	hostels  *hostels.Repo
 	ident    *identity.Signer
 }
 
@@ -56,6 +58,7 @@ func New(opts Options) *API {
 		academic: academic.NewRepo(opts.Pool),
 		fees:     fees.NewRepo(opts.Pool),
 		regs:     registrations.NewRepo(opts.Pool),
+		hostels:  hostels.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret),
 	}
 }

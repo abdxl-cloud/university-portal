@@ -55,19 +55,19 @@ func (a *API) results(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) hostelHalls(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"halls": a.portal.HostelHalls()})
+	serveList(a, w, r, "halls", a.hostels.Halls)
 }
 
 func (a *API) hostelRooms(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"rooms": a.portal.HostelRooms()})
+	serveList(a, w, r, "rooms", a.hostels.Rooms)
 }
 
 func (a *API) hostelBeds(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"beds": a.portal.HostelBeds()})
+	serveList(a, w, r, "beds", a.hostels.Beds)
 }
 
 func (a *API) hostelApplications(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"applications": a.portal.HostelApplications()})
+	serveList(a, w, r, "applications", a.hostels.Applications)
 }
 
 func (a *API) patientRecords(w http.ResponseWriter, r *http.Request) {

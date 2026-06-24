@@ -42,9 +42,23 @@ type hostelApplyRequest struct {
 	HallID    string `json:"hallId"`
 }
 
+func (r hostelApplyRequest) Validate() error {
+	if r.StudentID == "" || r.HallID == "" {
+		return apperr.Invalid("studentId and hallId are required")
+	}
+	return nil
+}
+
 type decisionRequest struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
+}
+
+func (r decisionRequest) Validate() error {
+	if r.ID == "" {
+		return apperr.Invalid("id is required")
+	}
+	return nil
 }
 
 type libraryBookRequest struct {
@@ -122,10 +136,10 @@ func (a *API) applyHostel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req hostelApplyRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	app, err := a.portal.ApplyHostel(req.StudentID, req.HallID, user.ID)
+	app, err := a.hostels.Apply(r.Context(), req.StudentID, req.HallID, user.ID)
 	writeMutation(w, err, map[string]any{"application": app})
 }
 
@@ -135,10 +149,14 @@ func (a *API) decideHostelApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req decisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	app, err := a.portal.DecideHostelApplication(req.ID, req.Status, user.ID)
+	if req.Status != "allocated" && req.Status != "rejected" {
+		writeMutation(w, apperr.Invalid("status must be allocated or rejected"), nil)
+		return
+	}
+	app, err := a.hostels.Decide(r.Context(), req.ID, req.Status, user.ID)
 	writeMutation(w, err, map[string]any{"application": app})
 }
 
