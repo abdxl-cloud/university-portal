@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"formbuilder/backend/internal/apperr"
@@ -130,10 +129,16 @@ func (a *API) decideApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req decisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	approval, err := a.portal.DecideApproval(req.ID, req.Status, user.ID)
+	switch req.Status {
+	case "approved", "rejected", "queried":
+	default:
+		writeMutation(w, apperr.Invalid("status must be approved, rejected or queried"), nil)
+		return
+	}
+	approval, err := a.ops.DecideApproval(r.Context(), req.ID, req.Status, user.ID)
 	writeMutation(w, err, map[string]any{"approval": approval})
 }
 
@@ -205,10 +210,10 @@ func (a *API) markNotificationRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req idRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	notif, err := a.portal.MarkNotificationRead(req.ID, user.ID)
+	notif, err := a.ops.MarkNotificationRead(r.Context(), req.ID, user.ID)
 	writeMutation(w, err, map[string]any{"notification": notif})
 }
 
@@ -228,12 +233,4 @@ func (a *API) requireRole(w http.ResponseWriter, r *http.Request, roles ...strin
 	}
 	respond.Error(w, http.StatusForbidden, "forbidden for role")
 	return auth.User{}, false
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, out any) bool {
-	if err := json.NewDecoder(r.Body).Decode(out); err != nil {
-		respond.Error(w, http.StatusBadRequest, "invalid JSON body")
-		return false
-	}
-	return true
 }

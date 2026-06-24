@@ -18,7 +18,7 @@ import (
 	"formbuilder/backend/internal/httpapi/respond"
 	"formbuilder/backend/internal/identity"
 	"formbuilder/backend/internal/library"
-	"formbuilder/backend/internal/portal"
+	"formbuilder/backend/internal/ops"
 	"formbuilder/backend/internal/registrations"
 )
 
@@ -26,13 +26,13 @@ type API struct {
 	cfg     config.Config
 	logger  *slog.Logger
 	auth     *auth.Service
-	portal   *portal.Store
 	library  *library.Repo
 	academic *academic.Repo
 	fees     *fees.Repo
 	regs     *registrations.Repo
 	hostels  *hostels.Repo
 	clinic   *clinic.Repo
+	ops      *ops.Repo
 	ident    *identity.Signer
 }
 
@@ -55,13 +55,13 @@ func New(opts Options) *API {
 		cfg:     opts.Config,
 		logger:  logger,
 		auth:     auth.NewService(opts.Pool, sessionTTL),
-		portal:   portal.NewDemoStore(),
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
 		fees:     fees.NewRepo(opts.Pool),
 		regs:     registrations.NewRepo(opts.Pool),
 		hostels:  hostels.NewRepo(opts.Pool),
 		clinic:   clinic.NewRepo(opts.Pool),
+		ops:      ops.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret),
 	}
 }

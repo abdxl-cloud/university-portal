@@ -7,7 +7,12 @@ import (
 )
 
 func (a *API) portalDashboard(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, a.portal.Dashboard())
+	snapshot, err := a.ops.Dashboard(r.Context())
+	if err != nil {
+		respond.Err(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, snapshot)
 }
 
 func (a *API) academicSessions(w http.ResponseWriter, r *http.Request) {
@@ -87,17 +92,17 @@ func (a *API) pharmacy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) approvals(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"approvals": a.portal.Approvals()})
+	serveList(a, w, r, "approvals", a.ops.Approvals)
 }
 
 func (a *API) notifications(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"notifications": a.portal.Notifications()})
+	serveList(a, w, r, "notifications", a.ops.Notifications)
 }
 
 func (a *API) auditLogs(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"auditLogs": a.portal.AuditLogs()})
+	serveList(a, w, r, "auditLogs", a.ops.AuditLogs)
 }
 
 func (a *API) supportTickets(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"tickets": a.portal.SupportTickets()})
+	serveList(a, w, r, "tickets", a.ops.SupportTickets)
 }
