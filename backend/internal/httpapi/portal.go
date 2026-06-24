@@ -71,19 +71,19 @@ func (a *API) hostelApplications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) patientRecords(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"patients": a.portal.PatientRecords()})
+	serveList(a, w, r, "patients", a.clinic.Patients)
 }
 
 func (a *API) clinicAppointments(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"appointments": a.portal.ClinicAppointments()})
+	serveList(a, w, r, "appointments", a.clinic.Appointments)
 }
 
 func (a *API) prescriptions(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"prescriptions": a.portal.Prescriptions()})
+	serveList(a, w, r, "prescriptions", a.clinic.Prescriptions)
 }
 
 func (a *API) pharmacy(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"items": a.portal.Pharmacy()})
+	serveList(a, w, r, "items", a.clinic.Pharmacy)
 }
 
 func (a *API) approvals(w http.ResponseWriter, r *http.Request) {

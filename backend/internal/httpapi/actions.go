@@ -91,6 +91,13 @@ type appointmentRequest struct {
 	Time      string `json:"time"`
 }
 
+func (r appointmentRequest) Validate() error {
+	if r.StudentID == "" || r.Service == "" || r.Date == "" || r.Time == "" {
+		return apperr.Invalid("studentId, service, date and time are required")
+	}
+	return nil
+}
+
 func (a *API) payInvoice(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "student", "bursary", "ict")
 	if !ok {
@@ -166,10 +173,10 @@ func (a *API) bookAppointment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req appointmentRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	appt, err := a.portal.BookAppointment(req.StudentID, req.Service, req.Date, req.Time, user.ID)
+	appt, err := a.clinic.BookAppointment(r.Context(), req.StudentID, req.Service, req.Date, req.Time, user.ID)
 	writeMutation(w, err, map[string]any{"appointment": appt})
 }
 
@@ -179,10 +186,16 @@ func (a *API) updateAppointmentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req decisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	appt, err := a.portal.UpdateAppointmentStatus(req.ID, req.Status, user.ID)
+	switch req.Status {
+	case "confirmed", "declined", "completed", "cancelled":
+	default:
+		writeMutation(w, apperr.Invalid("status must be confirmed, declined, completed or cancelled"), nil)
+		return
+	}
+	appt, err := a.clinic.UpdateAppointmentStatus(r.Context(), req.ID, req.Status, user.ID)
 	writeMutation(w, err, map[string]any{"appointment": appt})
 }
 
