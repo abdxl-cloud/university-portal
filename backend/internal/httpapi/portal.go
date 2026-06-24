@@ -47,7 +47,7 @@ func (a *API) courses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) courseRegistrations(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"registrations": a.portal.Registrations()})
+	serveList(a, w, r, "registrations", a.regs.List)
 }
 
 func (a *API) results(w http.ResponseWriter, r *http.Request) {

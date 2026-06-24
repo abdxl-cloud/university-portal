@@ -17,6 +17,7 @@ import (
 	"formbuilder/backend/internal/identity"
 	"formbuilder/backend/internal/library"
 	"formbuilder/backend/internal/portal"
+	"formbuilder/backend/internal/registrations"
 )
 
 type API struct {
@@ -27,6 +28,7 @@ type API struct {
 	library  *library.Repo
 	academic *academic.Repo
 	fees     *fees.Repo
+	regs     *registrations.Repo
 	ident    *identity.Signer
 }
 
@@ -53,6 +55,7 @@ func New(opts Options) *API {
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
 		fees:     fees.NewRepo(opts.Pool),
+		regs:     registrations.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret),
 	}
 }

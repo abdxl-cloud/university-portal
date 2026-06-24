@@ -27,6 +27,16 @@ type submitRegistrationRequest struct {
 	CourseIDs []string `json:"courseIds"`
 }
 
+func (r submitRegistrationRequest) Validate() error {
+	if r.StudentID == "" || r.SessionID == "" {
+		return apperr.Invalid("studentId and sessionId are required")
+	}
+	if len(r.CourseIDs) == 0 {
+		return apperr.Invalid("at least one course is required")
+	}
+	return nil
+}
+
 type hostelApplyRequest struct {
 	StudentID string `json:"studentId"`
 	HallID    string `json:"hallId"`
@@ -86,10 +96,10 @@ func (a *API) submitCourseRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req submitRegistrationRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	reg, err := a.portal.SubmitCourseRegistration(req.StudentID, req.SessionID, req.CourseIDs, user.ID)
+	reg, err := a.regs.Submit(r.Context(), req.StudentID, req.SessionID, req.CourseIDs, user.ID)
 	writeMutation(w, err, map[string]any{"registration": reg})
 }
 
