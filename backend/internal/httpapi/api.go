@@ -11,6 +11,7 @@ import (
 	"formbuilder/backend/internal/academic"
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/config"
+	"formbuilder/backend/internal/fees"
 	"formbuilder/backend/internal/httpapi/middleware"
 	"formbuilder/backend/internal/httpapi/respond"
 	"formbuilder/backend/internal/identity"
@@ -25,6 +26,7 @@ type API struct {
 	portal   *portal.Store
 	library  *library.Repo
 	academic *academic.Repo
+	fees     *fees.Repo
 	ident    *identity.Signer
 }
 
@@ -50,6 +52,7 @@ func New(opts Options) *API {
 		portal:   portal.NewDemoStore(),
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
+		fees:     fees.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret),
 	}
 }

@@ -35,11 +35,11 @@ func (a *API) staff(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) invoices(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"invoices": a.portal.Invoices()})
+	serveList(a, w, r, "invoices", a.fees.ListInvoices)
 }
 
 func (a *API) payments(w http.ResponseWriter, r *http.Request) {
-	respond.JSON(w, http.StatusOK, map[string]any{"payments": a.portal.Payments()})
+	serveList(a, w, r, "payments", a.fees.ListPayments)
 }
 
 func (a *API) courses(w http.ResponseWriter, r *http.Request) {

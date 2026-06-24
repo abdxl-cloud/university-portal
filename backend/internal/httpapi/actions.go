@@ -14,6 +14,13 @@ type payInvoiceRequest struct {
 	Channel   string `json:"channel"`
 }
 
+func (r payInvoiceRequest) Validate() error {
+	if r.InvoiceID == "" {
+		return apperr.Invalid("invoiceId is required")
+	}
+	return nil
+}
+
 type submitRegistrationRequest struct {
 	StudentID string   `json:"studentId"`
 	SessionID string   `json:"sessionId"`
@@ -66,10 +73,10 @@ func (a *API) payInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req payInvoiceRequest
-	if !decodeJSON(w, r, &req) {
+	if !bind(w, r, &req) {
 		return
 	}
-	payment, err := a.portal.PayInvoice(req.InvoiceID, req.Channel, user.ID)
+	payment, err := a.fees.PayInvoice(r.Context(), req.InvoiceID, req.Channel, user.ID)
 	writeMutation(w, err, map[string]any{"payment": payment})
 }
 
