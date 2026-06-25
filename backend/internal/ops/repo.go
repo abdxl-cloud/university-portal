@@ -46,20 +46,47 @@ func list[T any](ctx context.Context, r *Repo, countSQL, selectSQL string, limit
 	return out, total, rows.Err()
 }
 
-func (r *Repo) Approvals(ctx context.Context, limit, offset int) ([]portal.Approval, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM approvals`,
-		`SELECT id::text, domain, entity_id, requested_by, assigned_to, status, created_at
-		 FROM approvals ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset, scanApprovalRows)
+func (r *Repo) Approvals(ctx context.Context, limit, offset int, role string) ([]portal.Approval, int, error) {
+	all := role == "ict"
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM approvals WHERE $1 OR assigned_to=$2`, all, role).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, domain, entity_id, requested_by, assigned_to, status, created_at FROM approvals WHERE $3 OR assigned_to=$4 ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, all, role)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.Approval{}
+	for rows.Next() {
+		v, err := scanApproval(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, v)
+	}
+	return out, total, rows.Err()
 }
 
-func (r *Repo) Notifications(ctx context.Context, limit, offset int) ([]portal.Notification, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM notifications`,
-		`SELECT id::text, user_id::text, title, body, tone, read, created_at
-		 FROM notifications ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset, scanNotificationRows)
+func (r *Repo) Notifications(ctx context.Context, limit, offset int, userID string, all bool) ([]portal.Notification, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE $1 OR user_id=$2::uuid`, all, userID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, user_id::text, title, body, tone, read, created_at FROM notifications WHERE $3 OR user_id=$4::uuid ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, all, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.Notification{}
+	for rows.Next() {
+		v, err := scanNotification(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, v)
+	}
+	return out, total, rows.Err()
 }
 
 func (r *Repo) AuditLogs(ctx context.Context, limit, offset int) ([]portal.AuditLog, int, error) {
@@ -80,27 +107,33 @@ func (r *Repo) AuditLogs(ctx context.Context, limit, offset int) ([]portal.Audit
 		})
 }
 
-func (r *Repo) SupportTickets(ctx context.Context, limit, offset int) ([]portal.SupportTicket, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM support_tickets`,
-		`SELECT id::text, student_id::text, subject, status, created_at
-		 FROM support_tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.SupportTicket, error) {
-			var t portal.SupportTicket
-			err := rows.Scan(&t.ID, &t.StudentID, &t.Subject, &t.Status, &t.CreatedAt)
-			return t, err
-		})
+func (r *Repo) SupportTickets(ctx context.Context, limit, offset int, studentID string) ([]portal.SupportTicket, int, error) {
+	scope := db.UUIDOrNil(studentID)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM support_tickets WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, scope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, student_id::text, subject, status, created_at FROM support_tickets WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, scope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.SupportTicket{}
+	for rows.Next() {
+		var t portal.SupportTicket
+		if err := rows.Scan(&t.ID, &t.StudentID, &t.Subject, &t.Status, &t.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, t)
+	}
+	return out, total, rows.Err()
 }
-
-func scanApprovalRows(rows pgx.Rows) (portal.Approval, error) { return scanApproval(rows) }
 
 func scanApproval(row pgx.Row) (portal.Approval, error) {
 	var a portal.Approval
 	err := row.Scan(&a.ID, &a.Domain, &a.EntityID, &a.RequestedBy, &a.AssignedTo, &a.Status, &a.CreatedAt)
 	return a, err
 }
-
-func scanNotificationRows(rows pgx.Rows) (portal.Notification, error) { return scanNotification(rows) }
 
 func scanNotification(row pgx.Row) (portal.Notification, error) {
 	var n portal.Notification
@@ -109,11 +142,11 @@ func scanNotification(row pgx.Row) (portal.Notification, error) {
 }
 
 // DecideApproval sets an approval's status and audits it.
-func (r *Repo) DecideApproval(ctx context.Context, id, status, actorUserID string) (portal.Approval, error) {
+func (r *Repo) DecideApproval(ctx context.Context, id, status, actorUserID, actorRole string) (portal.Approval, error) {
 	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.Approval, error) {
 		ap, err := scanApproval(tx.QueryRow(ctx, `
-			UPDATE approvals SET status=$2 WHERE id=$1::uuid
-			RETURNING id::text, domain, entity_id, requested_by, assigned_to, status, created_at`, id, status))
+			UPDATE approvals SET status=$2 WHERE id=$1::uuid AND status='pending' AND ($3='ict' OR assigned_to=$3)
+			RETURNING id::text, domain, entity_id, requested_by, assigned_to, status, created_at`, id, status, actorRole))
 		if db.IsNotFound(err) {
 			return portal.Approval{}, apperr.NotFound("approval not found")
 		}
@@ -129,8 +162,8 @@ func (r *Repo) DecideApproval(ctx context.Context, id, status, actorUserID strin
 func (r *Repo) MarkNotificationRead(ctx context.Context, id, actorUserID string) (portal.Notification, error) {
 	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.Notification, error) {
 		n, err := scanNotification(tx.QueryRow(ctx, `
-			UPDATE notifications SET read=true WHERE id=$1::uuid
-			RETURNING id::text, user_id::text, title, body, tone, read, created_at`, id))
+			UPDATE notifications SET read=true WHERE id=$1::uuid AND user_id=$2::uuid
+			RETURNING id::text, user_id::text, title, body, tone, read, created_at`, id, actorUserID))
 		if db.IsNotFound(err) {
 			return portal.Notification{}, apperr.NotFound("notification not found")
 		}

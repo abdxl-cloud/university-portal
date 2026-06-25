@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"formbuilder/backend/internal/db"
 	"formbuilder/backend/internal/portal"
 )
 
@@ -87,19 +88,32 @@ func (r *Repo) Programs(ctx context.Context, limit, offset int) ([]portal.Progra
 		})
 }
 
-func (r *Repo) Students(ctx context.Context, limit, offset int) ([]portal.StudentProfile, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM students`,
-		`SELECT s.id::text, s.user_id::text, s.matric_no, s.first_name, s.last_name, COALESCE(u.email,''),
-		        COALESCE(s.phone,''), s.level, s.program_id::text, s.department_id::text, s.status
-		 FROM students s JOIN users u ON u.id = s.user_id
-		 ORDER BY s.last_name, s.first_name LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.StudentProfile, error) {
-			var s portal.StudentProfile
-			err := rows.Scan(&s.ID, &s.UserID, &s.MatricNo, &s.FirstName, &s.LastName, &s.Email,
-				&s.Phone, &s.Level, &s.ProgramID, &s.DepartmentID, &s.Status)
-			return s, err
-		})
+func (r *Repo) Students(ctx context.Context, limit, offset int, studentID string) ([]portal.StudentProfile, int, error) {
+	scope := db.UUIDOrNil(studentID)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM students WHERE ($1::uuid IS NULL OR id=$1::uuid)`, scope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT s.id::text, s.user_id::text, s.matric_no, s.first_name, s.last_name, COALESCE(u.email,''), COALESCE(s.phone,''), s.level, s.program_id::text, s.department_id::text, s.status FROM students s JOIN users u ON u.id=s.user_id WHERE ($3::uuid IS NULL OR s.id=$3::uuid) ORDER BY s.last_name, s.first_name LIMIT $1 OFFSET $2`, limit, offset, scope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.StudentProfile{}
+	for rows.Next() {
+		var v portal.StudentProfile
+		if err := rows.Scan(&v.ID, &v.UserID, &v.MatricNo, &v.FirstName, &v.LastName, &v.Email, &v.Phone, &v.Level, &v.ProgramID, &v.DepartmentID, &v.Status); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, v)
+	}
+	return out, total, rows.Err()
+}
+
+func (r *Repo) StudentIDByUserID(ctx context.Context, userID string) (string, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `SELECT id::text FROM students WHERE user_id=$1::uuid AND status='active'`, userID).Scan(&id)
+	return id, err
 }
 
 func (r *Repo) Staff(ctx context.Context, limit, offset int) ([]portal.StaffProfile, int, error) {
@@ -129,14 +143,24 @@ func (r *Repo) Courses(ctx context.Context, limit, offset int) ([]portal.Course,
 		})
 }
 
-func (r *Repo) Results(ctx context.Context, limit, offset int) ([]portal.Result, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM results`,
-		`SELECT id::text, student_id::text, course_id::text, session_id::text, ca, exam, total, grade, status
-		 FROM results ORDER BY status LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.Result, error) {
-			var res portal.Result
-			err := rows.Scan(&res.ID, &res.StudentID, &res.CourseID, &res.SessionID, &res.CA, &res.Exam, &res.Total, &res.Grade, &res.Status)
-			return res, err
-		})
+func (r *Repo) Results(ctx context.Context, limit, offset int, studentID string) ([]portal.Result, int, error) {
+	scope := db.UUIDOrNil(studentID)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM results WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, scope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, student_id::text, course_id::text, session_id::text, ca, exam, total, grade, status FROM results WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY status LIMIT $1 OFFSET $2`, limit, offset, scope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.Result{}
+	for rows.Next() {
+		var v portal.Result
+		if err := rows.Scan(&v.ID, &v.StudentID, &v.CourseID, &v.SessionID, &v.CA, &v.Exam, &v.Total, &v.Grade, &v.Status); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, v)
+	}
+	return out, total, rows.Err()
 }

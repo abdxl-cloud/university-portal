@@ -25,14 +25,14 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-func (r *Repo) ListInvoices(ctx context.Context, limit, offset int) ([]portal.Invoice, int, error) {
+func (r *Repo) ListInvoices(ctx context.Context, limit, offset int, studentID string) ([]portal.Invoice, int, error) {
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM invoices`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM invoices WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, db.UUIDOrNil(studentID)).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT id::text, student_id::text, session_id::text, total_kobo, currency, status, issued_at
-		FROM invoices ORDER BY issued_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		FROM invoices WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY issued_at DESC LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -94,14 +94,14 @@ func (r *Repo) itemsByInvoice(ctx context.Context, invoiceIDs []string) (map[str
 	return out, rows.Err()
 }
 
-func (r *Repo) ListPayments(ctx context.Context, limit, offset int) ([]portal.Payment, int, error) {
+func (r *Repo) ListPayments(ctx context.Context, limit, offset int, studentID string) ([]portal.Payment, int, error) {
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM payments`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM payments p JOIN invoices i ON i.id=p.invoice_id WHERE ($1::uuid IS NULL OR i.student_id=$1::uuid)`, db.UUIDOrNil(studentID)).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id::text, invoice_id::text, reference, channel, amount_kobo, currency, status, paid_at
-		FROM payments ORDER BY paid_at DESC NULLS LAST LIMIT $1 OFFSET $2`, limit, offset)
+		SELECT p.id::text, p.invoice_id::text, p.reference, p.channel, p.amount_kobo, p.currency, p.status, p.paid_at
+		FROM payments p JOIN invoices i ON i.id=p.invoice_id WHERE ($3::uuid IS NULL OR i.student_id=$3::uuid) ORDER BY paid_at DESC NULLS LAST LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -119,14 +119,14 @@ func (r *Repo) ListPayments(ctx context.Context, limit, offset int) ([]portal.Pa
 
 // PayInvoice marks a pending invoice paid and records a confirmed payment for
 // its full amount (mirrors the previous in-memory behaviour).
-func (r *Repo) PayInvoice(ctx context.Context, invoiceID, channel, actorUserID string) (portal.Payment, error) {
+func (r *Repo) PayInvoice(ctx context.Context, invoiceID, channel, actorUserID, studentID string) (portal.Payment, error) {
 	if channel == "" {
 		channel = "online"
 	}
 	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.Payment, error) {
 		var totalKobo int64
 		var currency, status string
-		err := tx.QueryRow(ctx, `SELECT total_kobo, currency, status FROM invoices WHERE id=$1::uuid FOR UPDATE`, invoiceID).
+		err := tx.QueryRow(ctx, `SELECT total_kobo, currency, status FROM invoices WHERE id=$1::uuid AND ($2::uuid IS NULL OR student_id=$2::uuid) FOR UPDATE`, invoiceID, db.UUIDOrNil(studentID)).
 			Scan(&totalKobo, &currency, &status)
 		if db.IsNotFound(err) {
 			return portal.Payment{}, apperr.NotFound("invoice not found")

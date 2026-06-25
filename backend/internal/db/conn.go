@@ -15,3 +15,11 @@ type Conn interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
+
+// UUIDOrNil converts an optional UUID string into a nullable query argument.
+func UUIDOrNil(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}

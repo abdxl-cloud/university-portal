@@ -23,8 +23,8 @@ import (
 )
 
 type API struct {
-	cfg     config.Config
-	logger  *slog.Logger
+	cfg      config.Config
+	logger   *slog.Logger
 	auth     *auth.Service
 	library  *library.Repo
 	academic *academic.Repo
@@ -52,8 +52,8 @@ func New(opts Options) *API {
 		sessionTTL = 168 * time.Hour
 	}
 	return &API{
-		cfg:     opts.Config,
-		logger:  logger,
+		cfg:      opts.Config,
+		logger:   logger,
 		auth:     auth.NewService(opts.Pool, sessionTTL),
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
@@ -62,7 +62,7 @@ func New(opts Options) *API {
 		hostels:  hostels.NewRepo(opts.Pool),
 		clinic:   clinic.NewRepo(opts.Pool),
 		ops:      ops.NewRepo(opts.Pool),
-		ident:    identity.New(opts.Config.IdentitySecret),
+		ident:    identity.New(opts.Config.IdentitySecret, opts.Config.IdentityTokenTTL),
 	}
 }
 

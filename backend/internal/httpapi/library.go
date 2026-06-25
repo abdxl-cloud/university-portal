@@ -62,6 +62,9 @@ func (req scanReturnRequest) Validate() error {
 // --- read endpoints (Postgres-backed, paginated) ---
 
 func (a *API) libraryBooks(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.requireUser(w, r); !ok {
+		return
+	}
 	page := parsePage(r)
 	books, total, err := a.library.ListBooks(r.Context(), page.Limit, page.Offset)
 	if err != nil {
@@ -74,8 +77,20 @@ func (a *API) libraryBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) libraryLoans(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if user.Role != "student" && !hasRole(user, "librarian", "ict") {
+		respond.Error(w, http.StatusForbidden, "forbidden for role")
+		return
+	}
+	scope, ok := a.studentScope(w, r, user)
+	if !ok {
+		return
+	}
 	page := parsePage(r)
-	loans, total, err := a.library.ListLoans(r.Context(), page.Limit, page.Offset)
+	loans, total, err := a.library.ListLoans(r.Context(), page.Limit, page.Offset, scope)
 	if err != nil {
 		a.logger.Error("list loans", "error", err)
 		respond.Err(w, err)
@@ -86,8 +101,20 @@ func (a *API) libraryLoans(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) libraryReservations(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if user.Role != "student" && !hasRole(user, "librarian", "ict") {
+		respond.Error(w, http.StatusForbidden, "forbidden for role")
+		return
+	}
+	scope, ok := a.studentScope(w, r, user)
+	if !ok {
+		return
+	}
 	page := parsePage(r)
-	reservations, total, err := a.library.ListReservations(r.Context(), page.Limit, page.Offset)
+	reservations, total, err := a.library.ListReservations(r.Context(), page.Limit, page.Offset, scope)
 	if err != nil {
 		a.logger.Error("list reservations", "error", err)
 		respond.Err(w, err)
@@ -108,7 +135,11 @@ func (a *API) borrowBook(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	loan, err := a.library.BorrowByID(r.Context(), req.StudentID, req.BookID, user.ID)
+	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
+	if !ok {
+		return
+	}
+	loan, err := a.library.BorrowByID(r.Context(), studentID, req.BookID, user.ID)
 	writeMutation(w, err, map[string]any{"loan": loan})
 }
 
@@ -121,7 +152,11 @@ func (a *API) reserveBook(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	reservation, err := a.library.ReserveByID(r.Context(), req.StudentID, req.BookID, user.ID)
+	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
+	if !ok {
+		return
+	}
+	reservation, err := a.library.ReserveByID(r.Context(), studentID, req.BookID, user.ID)
 	writeMutation(w, err, map[string]any{"reservation": reservation})
 }
 
@@ -134,7 +169,11 @@ func (a *API) returnLoan(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	loan, err := a.library.ReturnByID(r.Context(), req.ID, user.ID)
+	scope, ok := a.studentScope(w, r, user)
+	if !ok {
+		return
+	}
+	loan, err := a.library.ReturnByID(r.Context(), req.ID, user.ID, scope)
 	writeMutation(w, err, map[string]any{"loan": loan})
 }
 

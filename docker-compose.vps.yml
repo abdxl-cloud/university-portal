@@ -7,10 +7,11 @@ services:
     environment:
       APP_ENV: production
       HTTP_ADDR: :8080
-      DATABASE_URL: postgres://formbuilder:formbuilder@postgres:5432/formbuilder?sslmode=disable
+      DATABASE_URL: postgres://formbuilder:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/formbuilder?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       ALLOWED_ORIGINS: http://109.205.181.4:3014,http://localhost:3014
-      IDENTITY_SECRET: ${IDENTITY_SECRET:-dev-identity-secret-change-me}
+      IDENTITY_SECRET: ${IDENTITY_SECRET:?set IDENTITY_SECRET}
+      IDENTITY_TOKEN_TTL: 5m
     ports:
       - "8080:8080"
     depends_on:
@@ -35,7 +36,7 @@ services:
     container_name: university_portal_postgres
     environment:
       POSTGRES_USER: formbuilder
-      POSTGRES_PASSWORD: formbuilder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: formbuilder
     volumes:
       - university_portal_postgres_data:/var/lib/postgresql/data

@@ -25,14 +25,14 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-func (r *Repo) List(ctx context.Context, limit, offset int) ([]portal.CourseRegistration, int, error) {
+func (r *Repo) List(ctx context.Context, limit, offset int, studentID string) ([]portal.CourseRegistration, int, error) {
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM course_registrations`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM course_registrations WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, db.UUIDOrNil(studentID)).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT id::text, student_id::text, session_id::text, status, units, submitted_at
-		FROM course_registrations ORDER BY submitted_at DESC NULLS LAST LIMIT $1 OFFSET $2`, limit, offset)
+		FROM course_registrations WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY submitted_at DESC NULLS LAST LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
 	}

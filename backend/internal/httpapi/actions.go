@@ -97,6 +97,21 @@ func (r appointmentRequest) Validate() error {
 	return nil
 }
 
+func (a *API) targetStudentID(w http.ResponseWriter, r *http.Request, user auth.User, requested string) (string, bool) {
+	if user.Role != "student" {
+		return requested, true
+	}
+	studentID, ok := a.studentScope(w, r, user)
+	if !ok {
+		return "", false
+	}
+	if requested != "" && requested != studentID {
+		respond.Error(w, http.StatusForbidden, "cannot act for another student")
+		return "", false
+	}
+	return studentID, true
+}
+
 func (a *API) payInvoice(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "student", "bursary", "ict")
 	if !ok {
@@ -106,7 +121,11 @@ func (a *API) payInvoice(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	payment, err := a.fees.PayInvoice(r.Context(), req.InvoiceID, req.Channel, user.ID)
+	scope, ok := a.studentScope(w, r, user)
+	if !ok {
+		return
+	}
+	payment, err := a.fees.PayInvoice(r.Context(), req.InvoiceID, req.Channel, user.ID, scope)
 	writeMutation(w, err, map[string]any{"payment": payment})
 }
 
@@ -119,7 +138,11 @@ func (a *API) submitCourseRegistration(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	reg, err := a.regs.Submit(r.Context(), req.StudentID, req.SessionID, req.CourseIDs, user.ID)
+	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
+	if !ok {
+		return
+	}
+	reg, err := a.regs.Submit(r.Context(), studentID, req.SessionID, req.CourseIDs, user.ID)
 	writeMutation(w, err, map[string]any{"registration": reg})
 }
 
@@ -138,7 +161,7 @@ func (a *API) decideApproval(w http.ResponseWriter, r *http.Request) {
 		writeMutation(w, apperr.Invalid("status must be approved, rejected or queried"), nil)
 		return
 	}
-	approval, err := a.ops.DecideApproval(r.Context(), req.ID, req.Status, user.ID)
+	approval, err := a.ops.DecideApproval(r.Context(), req.ID, req.Status, user.ID, user.Role)
 	writeMutation(w, err, map[string]any{"approval": approval})
 }
 
@@ -151,7 +174,11 @@ func (a *API) applyHostel(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	app, err := a.hostels.Apply(r.Context(), req.StudentID, req.HallID, user.ID)
+	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
+	if !ok {
+		return
+	}
+	app, err := a.hostels.Apply(r.Context(), studentID, req.HallID, user.ID)
 	writeMutation(w, err, map[string]any{"application": app})
 }
 
@@ -181,7 +208,11 @@ func (a *API) bookAppointment(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	appt, err := a.clinic.BookAppointment(r.Context(), req.StudentID, req.Service, req.Date, req.Time, user.ID)
+	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
+	if !ok {
+		return
+	}
+	appt, err := a.clinic.BookAppointment(r.Context(), studentID, req.Service, req.Date, req.Time, user.ID)
 	writeMutation(w, err, map[string]any{"appointment": appt})
 }
 
@@ -194,13 +225,21 @@ func (a *API) updateAppointmentStatus(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
+	if user.Role == "student" && req.Status != "cancelled" {
+		respond.Error(w, http.StatusForbidden, "students may only cancel appointments")
+		return
+	}
 	switch req.Status {
 	case "confirmed", "declined", "completed", "cancelled":
 	default:
 		writeMutation(w, apperr.Invalid("status must be confirmed, declined, completed or cancelled"), nil)
 		return
 	}
-	appt, err := a.clinic.UpdateAppointmentStatus(r.Context(), req.ID, req.Status, user.ID)
+	scope, ok := a.studentScope(w, r, user)
+	if !ok {
+		return
+	}
+	appt, err := a.clinic.UpdateAppointmentStatus(r.Context(), req.ID, req.Status, user.ID, scope)
 	writeMutation(w, err, map[string]any{"appointment": appt})
 }
 

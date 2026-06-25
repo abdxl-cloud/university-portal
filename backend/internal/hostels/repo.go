@@ -78,15 +78,26 @@ func (r *Repo) Beds(ctx context.Context, limit, offset int) ([]portal.HostelBed,
 		})
 }
 
-func (r *Repo) Applications(ctx context.Context, limit, offset int) ([]portal.HostelApplication, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM hostel_applications`,
-		`SELECT id::text, student_id::text, hall_id::text, status, created_at FROM hostel_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.HostelApplication, error) {
-			var a portal.HostelApplication
-			err := rows.Scan(&a.ID, &a.StudentID, &a.HallID, &a.Status, &a.CreatedAt)
-			return a, err
-		})
+func (r *Repo) Applications(ctx context.Context, limit, offset int, studentID string) ([]portal.HostelApplication, int, error) {
+	var total int
+	scope := db.UUIDOrNil(studentID)
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM hostel_applications WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, scope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, student_id::text, hall_id::text, status, created_at FROM hostel_applications WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, scope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.HostelApplication{}
+	for rows.Next() {
+		var a portal.HostelApplication
+		if err := rows.Scan(&a.ID, &a.StudentID, &a.HallID, &a.Status, &a.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
 }
 
 func scanApplication(row pgx.Row) (portal.HostelApplication, error) {

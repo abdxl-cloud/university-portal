@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/config"
 	"formbuilder/backend/internal/db"
 	"formbuilder/backend/internal/httpapi"
@@ -17,6 +18,10 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+	if err := cfg.Validate(); err != nil {
+		logger.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
@@ -30,6 +35,18 @@ func main() {
 		pool.Close()
 		logger.Error("migrations failed", "error", err)
 		os.Exit(1)
+	}
+	if cfg.Env == "production" {
+		disabled, err := auth.DisableDemoAccounts(ctx, pool)
+		if err != nil {
+			cancel()
+			pool.Close()
+			logger.Error("failed to disable demo accounts", "error", err)
+			os.Exit(1)
+		}
+		if disabled > 0 {
+			logger.Warn("disabled accounts using the bundled demo password", "count", disabled)
+		}
 	}
 	cancel()
 	defer pool.Close()
@@ -45,6 +62,9 @@ func main() {
 		Addr:              cfg.HTTPAddr,
 		Handler:           app.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

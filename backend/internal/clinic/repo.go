@@ -57,12 +57,26 @@ func (r *Repo) Patients(ctx context.Context, limit, offset int) ([]portal.Patien
 		})
 }
 
-func (r *Repo) Appointments(ctx context.Context, limit, offset int) ([]portal.ClinicAppointment, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM clinic_appointments`,
-		`SELECT id::text, student_id::text, service, appointment_date, appointment_time, status, created_at
-		 FROM clinic_appointments ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-		limit, offset, scanAppointmentRows)
+func (r *Repo) Appointments(ctx context.Context, limit, offset int, studentID string) ([]portal.ClinicAppointment, int, error) {
+	scope := db.UUIDOrNil(studentID)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM clinic_appointments WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, scope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, student_id::text, service, appointment_date, appointment_time, status, created_at FROM clinic_appointments WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, scope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.ClinicAppointment{}
+	for rows.Next() {
+		v, err := scanAppointment(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, v)
+	}
+	return out, total, rows.Err()
 }
 
 func (r *Repo) Prescriptions(ctx context.Context, limit, offset int) ([]portal.Prescription, int, error) {
@@ -88,10 +102,6 @@ func (r *Repo) Pharmacy(ctx context.Context, limit, offset int) ([]portal.Pharma
 		})
 }
 
-func scanAppointmentRows(rows pgx.Rows) (portal.ClinicAppointment, error) {
-	return scanAppointment(rows)
-}
-
 func scanAppointment(row pgx.Row) (portal.ClinicAppointment, error) {
 	var a portal.ClinicAppointment
 	err := row.Scan(&a.ID, &a.StudentID, &a.Service, &a.Date, &a.Time, &a.Status, &a.CreatedAt)
@@ -115,12 +125,12 @@ func (r *Repo) BookAppointment(ctx context.Context, studentID, service, date, sl
 }
 
 // UpdateAppointmentStatus sets the appointment status and audits it.
-func (r *Repo) UpdateAppointmentStatus(ctx context.Context, id, status, actorUserID string) (portal.ClinicAppointment, error) {
+func (r *Repo) UpdateAppointmentStatus(ctx context.Context, id, status, actorUserID, studentID string) (portal.ClinicAppointment, error) {
 	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.ClinicAppointment, error) {
 		appt, err := scanAppointment(tx.QueryRow(ctx, `
-			UPDATE clinic_appointments SET status=$2 WHERE id=$1::uuid
+			UPDATE clinic_appointments SET status=$2 WHERE id=$1::uuid AND ($3::uuid IS NULL OR student_id=$3::uuid)
 			RETURNING id::text, student_id::text, service, appointment_date, appointment_time, status, created_at`,
-			id, status))
+			id, status, db.UUIDOrNil(studentID)))
 		if db.IsNotFound(err) {
 			return portal.ClinicAppointment{}, apperr.NotFound("appointment not found")
 		}

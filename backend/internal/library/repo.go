@@ -95,12 +95,12 @@ func (r *Repo) ListBooks(ctx context.Context, limit, offset int) ([]portal.Libra
 	return out, total, rows.Err()
 }
 
-func (r *Repo) ListLoans(ctx context.Context, limit, offset int) ([]portal.LibraryLoan, int, error) {
+func (r *Repo) ListLoans(ctx context.Context, limit, offset int, studentID string) ([]portal.LibraryLoan, int, error) {
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM library_loans`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM library_loans WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, db.UUIDOrNil(studentID)).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+loanCols+` FROM library_loans ORDER BY due_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT `+loanCols+` FROM library_loans WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY due_at DESC LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -116,12 +116,12 @@ func (r *Repo) ListLoans(ctx context.Context, limit, offset int) ([]portal.Libra
 	return out, total, rows.Err()
 }
 
-func (r *Repo) ListReservations(ctx context.Context, limit, offset int) ([]portal.LibraryReservation, int, error) {
+func (r *Repo) ListReservations(ctx context.Context, limit, offset int, studentID string) ([]portal.LibraryReservation, int, error) {
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM library_reservations`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM library_reservations WHERE ($1::uuid IS NULL OR student_id=$1::uuid)`, db.UUIDOrNil(studentID)).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id::text, book_id::text, student_id::text, status, created_at FROM library_reservations ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT id::text, book_id::text, student_id::text, status, created_at FROM library_reservations WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -256,8 +256,17 @@ func (r *Repo) ScanCheckout(ctx context.Context, matric, isbn, eventID, actorUse
 	})
 }
 
-func (r *Repo) ReturnByID(ctx context.Context, loanID, actorUserID string) (portal.LibraryLoan, error) {
+func (r *Repo) ReturnByID(ctx context.Context, loanID, actorUserID, studentID string) (portal.LibraryLoan, error) {
 	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.LibraryLoan, error) {
+		if studentID != "" {
+			var allowed bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM library_loans WHERE id=$1::uuid AND student_id=$2::uuid)`, loanID, studentID).Scan(&allowed); err != nil {
+				return portal.LibraryLoan{}, err
+			}
+			if !allowed {
+				return portal.LibraryLoan{}, apperr.NotFound("loan not found")
+			}
+		}
 		return r.returnLoan(ctx, tx, loanID, actorUserID, nil)
 	})
 }
@@ -396,8 +405,12 @@ func (r *Repo) reserveEvent(ctx context.Context, tx pgx.Tx, eventID, kind string
 	if ct.RowsAffected() == 1 {
 		return nil, true, nil
 	}
-	if err := tx.QueryRow(ctx, `SELECT result_id FROM scan_events WHERE event_id=$1`, eventID).Scan(&prior); err != nil {
+	var existingKind string
+	if err := tx.QueryRow(ctx, `SELECT kind, result_id FROM scan_events WHERE event_id=$1`, eventID).Scan(&existingKind, &prior); err != nil {
 		return nil, false, err
+	}
+	if existingKind != kind {
+		return nil, false, apperr.Conflict("eventId was already used for a different scan operation")
 	}
 	return prior, false, nil
 }

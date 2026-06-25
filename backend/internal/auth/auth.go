@@ -113,6 +113,16 @@ func (s *Service) CleanupExpired(ctx context.Context) (int64, error) {
 	return ct.RowsAffected(), nil
 }
 
+// DisableDemoAccounts prevents the bundled prototype credentials from being
+// usable in production, including on databases created by older migrations.
+func DisableDemoAccounts(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `UPDATE users SET status='disabled', updated_at=now() WHERE status='active' AND password_hash = crypt('demo1234', password_hash)`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 func newToken() (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {

@@ -11,8 +11,10 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 )
 
 var (
@@ -23,10 +25,20 @@ var (
 
 type Signer struct {
 	secret []byte
+	ttl    time.Duration
 }
 
-func New(secret string) *Signer {
-	return &Signer{secret: []byte(secret)}
+type claims struct {
+	Subject   string `json:"sub"`
+	Audience  string `json:"aud"`
+	ExpiresAt int64  `json:"exp"`
+}
+
+func New(secret string, ttl time.Duration) *Signer {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &Signer{secret: []byte(secret), ttl: ttl}
 }
 
 // Sign returns a signed token for the given payload (e.g. a matric number).
@@ -34,8 +46,12 @@ func (s *Signer) Sign(payload string) (string, error) {
 	if strings.TrimSpace(payload) == "" {
 		return "", ErrEmptyPayload
 	}
+	body, err := json.Marshal(claims{Subject: strings.TrimSpace(payload), Audience: "student-identity", ExpiresAt: time.Now().Add(s.ttl).Unix()})
+	if err != nil {
+		return "", err
+	}
 	enc := base64.RawURLEncoding
-	return enc.EncodeToString([]byte(payload)) + "." + enc.EncodeToString(s.mac(payload)), nil
+	return enc.EncodeToString(body) + "." + enc.EncodeToString(s.mac(body)), nil
 }
 
 // Verify checks a token's signature and returns the embedded payload.
@@ -53,14 +69,21 @@ func (s *Signer) Verify(token string) (string, error) {
 	if err != nil {
 		return "", ErrMalformed
 	}
-	if !hmac.Equal(sig, s.mac(string(payloadBytes))) {
+	if !hmac.Equal(sig, s.mac(payloadBytes)) {
 		return "", ErrBadSignature
 	}
-	return string(payloadBytes), nil
+	var c claims
+	if err := json.Unmarshal(payloadBytes, &c); err != nil {
+		return "", ErrMalformed
+	}
+	if c.Subject == "" || c.Audience != "student-identity" || time.Now().Unix() >= c.ExpiresAt {
+		return "", ErrMalformed
+	}
+	return c.Subject, nil
 }
 
-func (s *Signer) mac(payload string) []byte {
+func (s *Signer) mac(payload []byte) []byte {
 	m := hmac.New(sha256.New, s.secret)
-	m.Write([]byte(payload))
+	m.Write(payload)
 	return m.Sum(nil)
 }

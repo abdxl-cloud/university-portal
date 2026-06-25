@@ -1,35 +1,69 @@
 package config
 
 import (
+	"errors"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	Env             string
-	HTTPAddr        string
-	LogLevel        slog.Level
-	DatabaseURL     string
-	RedisURL        string
-	AllowedOrigins  []string
-	AccessTokenTTL  string
-	RefreshTokenTTL string
-	IdentitySecret  string
+	Env              string
+	HTTPAddr         string
+	LogLevel         slog.Level
+	DatabaseURL      string
+	RedisURL         string
+	AllowedOrigins   []string
+	AccessTokenTTL   string
+	RefreshTokenTTL  string
+	IdentitySecret   string
+	IdentityTokenTTL time.Duration
 }
 
 func Load() Config {
 	return Config{
-		Env:             env("APP_ENV", "development"),
-		HTTPAddr:        env("HTTP_ADDR", ":8080"),
-		LogLevel:        logLevel(env("LOG_LEVEL", "info")),
-		DatabaseURL:     env("DATABASE_URL", "postgres://formbuilder:formbuilder@localhost:5432/formbuilder?sslmode=disable"),
-		RedisURL:        env("REDIS_URL", "redis://localhost:6379/0"),
-		AllowedOrigins:  csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:4173,http://localhost:4173"),
-		AccessTokenTTL:  env("ACCESS_TOKEN_TTL", "15m"),
-		RefreshTokenTTL: env("REFRESH_TOKEN_TTL", "168h"),
-		IdentitySecret:  env("IDENTITY_SECRET", "dev-identity-secret-change-me"),
+		Env:              env("APP_ENV", "development"),
+		HTTPAddr:         env("HTTP_ADDR", ":8080"),
+		LogLevel:         logLevel(env("LOG_LEVEL", "info")),
+		DatabaseURL:      env("DATABASE_URL", "postgres://formbuilder:formbuilder@localhost:5432/formbuilder?sslmode=disable"),
+		RedisURL:         env("REDIS_URL", "redis://localhost:6379/0"),
+		AllowedOrigins:   csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:4173,http://localhost:4173"),
+		AccessTokenTTL:   env("ACCESS_TOKEN_TTL", "15m"),
+		RefreshTokenTTL:  env("REFRESH_TOKEN_TTL", "168h"),
+		IdentitySecret:   env("IDENTITY_SECRET", "dev-identity-secret-change-me"),
+		IdentityTokenTTL: durationEnv("IDENTITY_TOKEN_TTL", 5*time.Minute),
 	}
+}
+
+func durationEnv(key string, fallback time.Duration) time.Duration {
+	value := env(key, fallback.String())
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func (c Config) Validate() error {
+	if c.DatabaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+	if c.Env == "production" {
+		if len(c.IdentitySecret) < 32 || c.IdentitySecret == "dev-identity-secret-change-me" {
+			return errors.New("IDENTITY_SECRET must be a unique value of at least 32 characters in production")
+		}
+		parsed, err := url.Parse(c.DatabaseURL)
+		if err != nil || parsed.User == nil {
+			return errors.New("production DATABASE_URL is invalid")
+		}
+		password, hasPassword := parsed.User.Password()
+		if !hasPassword || password == "" || (parsed.User.Username() == "formbuilder" && password == "formbuilder") {
+			return errors.New("production DATABASE_URL must use explicit non-default database credentials")
+		}
+	}
+	return nil
 }
 
 func env(key, fallback string) string {

@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -18,8 +20,15 @@ type Validator interface {
 // bind decodes a JSON request body into dst and, if dst implements Validator,
 // validates it. On any failure it writes the error response and returns false.
 func bind(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid JSON body")
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		respond.Error(w, http.StatusBadRequest, "request body must contain one JSON object")
 		return false
 	}
 	if v, ok := dst.(Validator); ok {
