@@ -1,0 +1,37 @@
+import "../data/org.js";
+import "../data/student-data.js";
+import "../data/siwes-data.js";
+
+import "../components/icons.jsx";
+import "../components/ui.jsx";
+import "../components/detail.jsx";
+import "../components/search.jsx";
+
+import "../features/student/public.jsx";
+import "../features/student/dash-fees.jsx";
+import "../features/finance/finance.jsx";
+import "../data/campus-data.js";
+import "../features/campus/campus.jsx";
+import "../data/staff-data.js";
+import "../features/staff/staff.jsx";
+import "../features/staff/staff-courses.jsx";
+import "../data/roles-data.js";
+import "../features/roles/role-shell.jsx";
+import "../features/roles/mini-lecturer.jsx";
+import "../features/roles/role-academics.jsx";
+import "../features/roles/role-services.jsx";
+import "../features/campus/librarian.jsx";
+import "../features/roles/role-campus.jsx";
+import "../data/admissions-data.js";
+import "../features/admissions/adm-candidate.jsx";
+import "../features/admissions/adm-candidate2.jsx";
+import "../features/admissions/adm-candidate-form.jsx";
+import "../features/admissions/adm-candidate-status.jsx";
+import "../features/admissions/adm-candidate-app.jsx";
+import "../features/admissions/adm-staff.jsx";
+import "../features/admissions/adm-staff2.jsx";
+import "../features/student/reg-hostel.jsx";
+import "../features/student/classes.jsx";
+import "../features/student/results-tt.jsx";
+import "../features/siwes/siwes.jsx";
+import "../components/tweaks-panel.jsx";
