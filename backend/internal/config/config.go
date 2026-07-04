@@ -29,7 +29,7 @@ func Load() Config {
 		LogLevel:         logLevel(env("LOG_LEVEL", "info")),
 		DatabaseURL:      env("DATABASE_URL", "postgres://formbuilder:formbuilder@localhost:5432/formbuilder?sslmode=disable"),
 		RedisURL:         env("REDIS_URL", "redis://localhost:6379/0"),
-		AllowedOrigins:   csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:4173,http://localhost:4173"),
+		AllowedOrigins:   csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3014,http://localhost:3014,http://127.0.0.1:4173,http://localhost:4173,http://127.0.0.1:4174,http://localhost:4174,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://localhost:5174"),
 		AccessTokenTTL:   env("ACCESS_TOKEN_TTL", "15m"),
 		RefreshTokenTTL:  env("REFRESH_TOKEN_TTL", "168h"),
 		IdentitySecret:   env("IDENTITY_SECRET", "dev-identity-secret-change-me"),

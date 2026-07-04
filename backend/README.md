@@ -1,104 +1,95 @@
 # FormBuilder Backend
 
-Go API for the student portal prototype.
+Go API for the university portal prototype.
 
 ## Stack
 
 - Go HTTP API
 - PostgreSQL
-- Redis-ready background jobs
-- `sqlc`-ready query layout
-- SQL migrations in `migrations/`
+- Embedded SQL migrations applied on API boot
+- Seeded demo data for frontend development
 
-## Run Locally
+## Recommended Local Run
 
-Install Go, then:
+If you have Docker, you do not need Go or PostgreSQL installed locally. Docker Compose starts PostgreSQL and Redis as containers.
 
-```powershell
-cd backend
-Copy-Item .env.example .env
-go run ./cmd/api
+From the repository root, build the backend locally:
+
+```sh
+docker compose up --build api
 ```
 
-Health endpoints:
+Or run the published Docker Hub backend image:
+
+```sh
+docker compose -f docker-compose.backend-image.yml up
+```
+
+Docker Compose starts:
+
+- API: `http://localhost:8080`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+
+The API waits for PostgreSQL to be healthy before starting.
+
+## Useful Endpoints
 
 ```txt
 GET http://localhost:8080/healthz
 GET http://localhost:8080/api/v1/health
+GET http://localhost:8080/docs
+GET http://localhost:8080/openapi.json
 ```
 
-API docs:
+## Demo Login
 
-```txt
-http://localhost:8080/docs
+All demo users use password `demo1234`.
+
+```sh
+curl -s http://localhost:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"FUT/2022/CSC/10428","password":"demo1234"}'
 ```
 
-OpenAPI document:
+Use the returned token for authenticated endpoints:
 
-```txt
-http://localhost:8080/openapi.json
+```sh
+TOKEN="paste-access-token-here"
+curl -s http://localhost:8080/api/v1/me \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-Demo login:
+## Native Go Run
 
-```powershell
-$body = @{ identifier = "FUT/2022/CSC/10428"; password = "demo1234" } | ConvertTo-Json
-$login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/login -ContentType "application/json" -Body $body
-Invoke-RestMethod -Uri http://localhost:8080/api/v1/me -Headers @{ Authorization = "Bearer $($login.accessToken)" }
+For native `go run`, PostgreSQL must already be running and reachable through `DATABASE_URL`.
+
+```sh
+cd backend
+cp .env.example .env
+set -a
+. ./.env
+set +a
+go run ./cmd/api
 ```
 
-## Run With Docker Compose
+`go run` does not automatically read `.env`; the shell commands above export it.
 
-From the project root:
+## Frontend CORS
 
-```powershell
-docker compose up --build
+The default `ALLOWED_ORIGINS` includes common frontend dev and preview ports:
+
+- `http://localhost:3000`
+- `http://localhost:3014`
+- `http://localhost:4173`
+- `http://localhost:4174`
+- `http://localhost:5173`
+- `http://localhost:5174`
+
+Add any deployed preview URL to `ALLOWED_ORIGINS` when testing from a remote browser.
+
+## Verification
+
+```sh
+go test ./...
 ```
-
-API:
-
-```txt
-http://localhost:8080
-```
-
-PostgreSQL:
-
-```txt
-localhost:5432
-user: formbuilder
-password: formbuilder
-database: formbuilder
-```
-
-## Suggested Next Modules
-
-The backend currently exposes seeded in-memory read APIs for:
-
-- Auth and current user
-- Dashboard summary
-- Academic sessions, faculties, departments, programs
-- Students and staff
-- Fees, invoices, and payments
-- Courses, course registrations, and results
-- Hostel halls, rooms, beds, and applications
-- Library books, loans, and reservations
-- Clinic patients, appointments, prescriptions, and pharmacy
-- Approvals, notifications, audit logs, and support tickets
-
-It also exposes seeded in-memory write APIs for:
-
-- Paying invoices
-- Submitting course registrations
-- Deciding approval tasks
-- Applying for hostel accommodation
-- Allocating/rejecting hostel applications
-- Borrowing, reserving, and returning library books
-- Booking and updating clinic appointments
-- Marking notifications as read
-
-Suggested next backend layer:
-
-1. Add richer request validation and tests.
-2. Expand staff workflows for result publishing and pharmacy inventory.
-3. Move repositories from in-memory storage to PostgreSQL.
-4. Add file/document upload support.

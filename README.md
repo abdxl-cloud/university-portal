@@ -1,48 +1,54 @@
 # University Portal
 
-A university portal prototype and Go backend for student, staff, and campus-service workflows.
+A university portal prototype and Go API for student, staff, admissions, and campus-service workflows.
 
 ## What Is Included
 
-- `frontend/` - existing frontend app in the repository
-- `project/` - exported HTML/CSS/JS prototype used as design/reference material
-- `backend/` - Go API scaffold with in-memory domain data and mutation flows
-- `docker-compose.yml` - local services for the API, PostgreSQL, and Redis
+- `prototype/` - Vite React prototype converted from the standalone app kit.
+- `frontend/` - existing frontend app in the repository.
+- `backend/` - Go API backed by PostgreSQL, with embedded migrations and seeded demo data.
+- `docker-compose.yml` - local API, PostgreSQL, and Redis services.
 
-## Backend
+## Run The Backend For Frontend Work
 
-The backend is written in Go and currently uses an in-memory store so development can continue without a local PostgreSQL installation. It is structured so the repositories can later be swapped to PostgreSQL.
+If you have Docker, you do not need Go or PostgreSQL installed locally. Docker Compose starts PostgreSQL and Redis as containers.
 
-Current backend capabilities:
+To build the backend locally:
 
-- Demo auth and role-aware endpoints
-- Scalar API docs
-- Student and staff profile resources
-- Fees, invoices, and payment actions
-- Course registrations, approvals, and results
-- Hostel halls, rooms, beds, applications, and decisions
-- Library books, loans, reservations, and returns
-- Clinic patients, appointments, prescriptions, and pharmacy inventory
-- Notifications, audit logs, and support tickets
-
-## Run The Backend
-
-```powershell
-cd backend
-go run ./cmd/api
+```sh
+docker compose up --build api
 ```
 
-API docs:
+To use the published Docker Hub backend image instead:
+
+```sh
+docker compose -f docker-compose.backend-image.yml up
+```
+
+This starts PostgreSQL, Redis, and the Go API. The API runs at:
 
 ```txt
-http://localhost:8080/docs
+http://localhost:8080
 ```
 
-Health check:
+Useful URLs:
 
 ```txt
 http://localhost:8080/healthz
+http://localhost:8080/api/v1/health
+http://localhost:8080/docs
+http://localhost:8080/openapi.json
 ```
+
+## Run The Prototype
+
+```sh
+cd prototype
+npm install
+npm run dev
+```
+
+The backend CORS defaults allow common local frontend ports including `3000`, `3014`, `4173`, `4174`, `5173`, and `5174`.
 
 ## Demo Login
 
@@ -69,17 +75,9 @@ FUT/STF/MED/0009  Medical Officer
 FUT/STF/ICT/0015  ICT Admin
 ```
 
-## Verification
+## Backend Verification
 
-From `backend/`:
-
-```powershell
+```sh
+cd backend
 go test ./...
 ```
-
-## Next Steps
-
-- Add richer request validation and tests
-- Persist domain repositories in PostgreSQL
-- Add file/document upload support
-- Integrate the frontend with the backend API
