@@ -303,7 +303,7 @@ function mergeHats(hats) {
   return { nav: [...nav, ...accountSections], screens };
 }
 
-function RolePortal({ role, store, actions, dark, setDark, onLogout }) {
+function RolePortal({ role, store, actions, dark, setDark, onLogout, route: routeFromUrl, onRouteChange }) {
   const CFG = React.useMemo(() => buildRoleConfig(), []);
   const cfg = CFG[role] || CFG.lecturer;
   const hats = cfg.hats || [{ key: role, label: cfg.label, nav: cfg.nav, screens: cfg.screens }];
@@ -312,15 +312,20 @@ function RolePortal({ role, store, actions, dark, setDark, onLogout }) {
 
   const first = merged.nav[0].items[0][0];
   const [route, setRoute] = React.useState(() => {
-    const saved = localStorage.getItem("futech.rt." + role);
+    const saved = routeFromUrl || localStorage.getItem("futech.rt." + role);
     return saved && merged.screens[saved] ? saved : first;
   });
   const [drawer, setDrawer] = React.useState(false);
   window.__store = store;
 
+  React.useEffect(() => {
+    if (routeFromUrl && merged.screens[routeFromUrl] && routeFromUrl !== route) setRoute(routeFromUrl);
+  }, [routeFromUrl, route, merged.screens]);
+
   const go = (r) => {
     if (r === "__logout") { onLogout(); return; }
     setRoute(r); localStorage.setItem("futech.rt." + role, r);
+    onRouteChange && onRouteChange(r);
     document.querySelector(".u-main")?.scrollTo(0, 0); window.scrollTo(0, 0);
   };
 

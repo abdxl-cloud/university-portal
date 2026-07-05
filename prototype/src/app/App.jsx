@@ -57,6 +57,29 @@ const SCREENS = {
   support: { c: "Support", title: "Support" },
 };
 
+function cleanHashPart(value) {
+  return decodeURIComponent(value || "").replace(/[^a-z0-9_-]/gi, "");
+}
+
+function readPrototypeLocation() {
+  const parts = window.location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(cleanHashPart);
+  if (parts[0] === "login") return { view: "login" };
+  if (parts[0] === "apply" || parts[0] === "admissions") return { view: "admissions", route: parts[1] || "overview" };
+  if (parts[0] === "portal") return { view: "portal", route: parts[1] || localStorage.getItem("futech.route") || "dashboard" };
+  if (parts[0] === "role") return { view: "role", role: parts[1] || localStorage.getItem("futech.role") || "lecturer", route: parts[2] };
+  return { view: "home" };
+}
+
+function writePrototypeLocation(next) {
+  const parts = [];
+  if (next.view === "login") parts.push("login");
+  else if (next.view === "admissions") parts.push("admissions", next.route || "overview");
+  else if (next.view === "portal") parts.push("portal", next.route || "dashboard");
+  else if (next.view === "role") parts.push("role", next.role || "lecturer", next.route || "");
+  const hash = "#/" + parts.filter(Boolean).map(encodeURIComponent).join("/");
+  if (window.location.hash !== hash) window.location.hash = hash;
+}
+
 const DEFAULT_STORE = {
   feesPaid: false,
   feesReceipt: null,
@@ -191,13 +214,17 @@ function Topbar({ title, dark, setDark, openDrawer, go, levelLabel }) {
   );
 }
 
-function Portal({ store, actions, dark, setDark, onLogout, level400 }) {
-  const [route, setRoute] = React.useState(() => localStorage.getItem("futech.route") || "dashboard");
+function Portal({ store, actions, dark, setDark, onLogout, level400, route: routeFromUrl, onRouteChange }) {
+  const [route, setRoute] = React.useState(() => routeFromUrl || localStorage.getItem("futech.route") || "dashboard");
   const [drawer, setDrawer] = React.useState(false);
   const nav = level400 ? NAV_400 : NAV;
+  React.useEffect(() => {
+    if (routeFromUrl && SCREENS[routeFromUrl] && routeFromUrl !== route) setRoute(routeFromUrl);
+  }, [routeFromUrl, route]);
   const go = (r) => {
     if (r === "__logout") { onLogout(); return; }
     setRoute(r); localStorage.setItem("futech.route", r);
+    onRouteChange && onRouteChange(r);
     document.querySelector(".u-main")?.scrollTo(0, 0);
     window.scrollTo(0, 0);
   };
@@ -247,14 +274,32 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [location, setLocation] = React.useState(readPrototypeLocation);
   const [dark, setDark] = React.useState(() => localStorage.getItem("futech.dark") === "1");
-  const [view, setView] = React.useState(() => localStorage.getItem("futech.authed") === "1" ? "portal" : "home");
-  const [role, setRole] = React.useState(() => localStorage.getItem("futech.role") || "student");
+  const [view, setView] = React.useState(() => {
+    const initial = readPrototypeLocation();
+    if (initial.view === "home" && localStorage.getItem("futech.authed") === "1") return localStorage.getItem("futech.role") === "student" ? "portal" : "role";
+    return initial.view;
+  });
+  const [role, setRole] = React.useState(() => readPrototypeLocation().role || localStorage.getItem("futech.role") || "student");
   const [store, setStore] = React.useState(() => {
     try { return { ...DEFAULT_STORE, ...JSON.parse(localStorage.getItem("futech.store") || "{}") }; }
     catch { return DEFAULT_STORE; }
   });
 
+  React.useEffect(() => {
+    const onHash = () => setLocation(readPrototypeLocation());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  React.useEffect(() => {
+    if (location.view === "home" && !window.location.hash && localStorage.getItem("futech.authed") === "1") return;
+    setView(location.view);
+    if (location.role) {
+      setRole(location.role);
+      localStorage.setItem("futech.role", location.role);
+    }
+  }, [location]);
   React.useEffect(() => { localStorage.setItem("futech.dark", dark ? "1" : "0"); }, [dark]);
   React.useEffect(() => { localStorage.setItem("futech.store", JSON.stringify(store)); }, [store]);
 
@@ -364,12 +409,19 @@ export default function App() {
   }), []);
 
   const go = (v) => {
-    if (v === "login") setView("login");
-    else if (v === "apply") setView("admissions");
-    else if (v === "home") setView("home");
+    if (v === "login") { setView("login"); writePrototypeLocation({ view: "login" }); }
+    else if (v === "apply") { setView("admissions"); writePrototypeLocation({ view: "admissions", route: "overview" }); }
+    else if (v === "home") { setView("home"); writePrototypeLocation({ view: "home" }); }
   };
-  const login = (r) => { const rr = r || "student"; localStorage.setItem("futech.role", rr); setRole(rr); localStorage.setItem("futech.authed", "1"); setView("portal"); };
-  const logout = () => { localStorage.setItem("futech.authed", "0"); setView("home"); };
+  const login = (r) => {
+    const rr = r || "student";
+    localStorage.setItem("futech.role", rr);
+    setRole(rr);
+    localStorage.setItem("futech.authed", "1");
+    setView(rr === "student" ? "portal" : "role");
+    writePrototypeLocation(rr === "student" ? { view: "portal", route: localStorage.getItem("futech.route") || "dashboard" } : { view: "role", role: rr });
+  };
+  const logout = () => { localStorage.setItem("futech.authed", "0"); setView("home"); writePrototypeLocation({ view: "home" }); };
 
   // expose for tweaks panel
   React.useEffect(() => { window.__futechReset = actions.reset; window.__futechSetDark = setDark; }, [actions]);
@@ -377,9 +429,9 @@ export default function App() {
   let body;
   if (view === "home") body = <PublicHome go={go} dark={dark} setDark={setDark} />;
   else if (view === "login") body = <Login go={go} onLogin={login} dark={dark} setDark={setDark} />;
-  else if (view === "admissions") body = <CandidateApp store={store} actions={actions} dark={dark} setDark={setDark} onExit={() => setView("home")} />;
-  else if (role === "student") body = <Portal store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} level400={t.studentLevel === "400"} />;
-  else body = <RolePortal role={role} store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} />;
+  else if (view === "admissions") body = <CandidateApp store={store} actions={actions} dark={dark} setDark={setDark} onExit={() => writePrototypeLocation({ view: "home" })} route={location.route} onRouteChange={(route) => writePrototypeLocation({ view: "admissions", route })} />;
+  else if (role === "student") body = <Portal store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} level400={t.studentLevel === "400"} route={location.view === "portal" ? location.route : undefined} onRouteChange={(route) => writePrototypeLocation({ view: "portal", route })} />;
+  else body = <RolePortal role={role} store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} route={location.view === "role" ? location.route : undefined} onRouteChange={(route) => writePrototypeLocation({ view: "role", role, route })} />;
 
   return (
     <div className="fb-app" data-theme={dark ? "dark" : "light"} data-accent={ACCENT_MAP[t.accent] || "crest"} data-density={t.density} style={{ minHeight: "100vh", "--font-sans": FONT_STACKS[t.font] || FONT_STACKS.Geist }}>
