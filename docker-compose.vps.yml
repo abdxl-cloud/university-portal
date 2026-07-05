@@ -19,14 +19,14 @@ services:
       - redis
     restart: unless-stopped
 
-  # Serves the static prototype (React + Babel via CDN, no build step) on :3014.
+  # Serves the React Router frontend, including the /prototype route, on :3014.
   frontend:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: university_portal_frontend
-    volumes:
-      - ./prototype:/usr/share/nginx/html:ro
     ports:
-      - "3014:80"
+      - "3014:3000"
     depends_on:
       - backend
     restart: unless-stopped
