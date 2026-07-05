@@ -19,12 +19,13 @@ services:
       - redis
     restart: unless-stopped
 
-  # Serves the static prototype (React + Babel via CDN, no build step) on :3014.
+  # Serves the built static prototype on :3014.
   frontend:
     image: nginx:alpine
     container_name: university_portal_frontend
     volumes:
-      - ./prototype:/usr/share/nginx/html:ro
+      - ./prototype/dist:/usr/share/nginx/html:ro
+      - ./prototype/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "3014:80"
     depends_on:

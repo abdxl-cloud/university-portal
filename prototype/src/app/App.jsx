@@ -62,7 +62,10 @@ function cleanHashPart(value) {
 }
 
 function readPrototypeLocation() {
-  const parts = window.location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(cleanHashPart);
+  const source = window.location.hash
+    ? window.location.hash.replace(/^#\/?/, "")
+    : window.location.pathname.replace(/^\/+/, "");
+  const parts = source.split("/").filter(Boolean).map(cleanHashPart);
   if (parts[0] === "login") return { view: "login" };
   if (parts[0] === "apply" || parts[0] === "admissions") return { view: "admissions", route: parts[1] || "overview" };
   if (parts[0] === "portal") return { view: "portal", route: parts[1] || localStorage.getItem("futech.route") || "dashboard" };
@@ -76,8 +79,11 @@ function writePrototypeLocation(next) {
   else if (next.view === "admissions") parts.push("admissions", next.route || "overview");
   else if (next.view === "portal") parts.push("portal", next.route || "dashboard");
   else if (next.view === "role") parts.push("role", next.role || "lecturer", next.route || "");
-  const hash = "#/" + parts.filter(Boolean).map(encodeURIComponent).join("/");
-  if (window.location.hash !== hash) window.location.hash = hash;
+  const path = "/" + parts.filter(Boolean).map(encodeURIComponent).join("/");
+  if (window.location.pathname + window.location.search + window.location.hash !== path) {
+    window.history.pushState(null, "", path);
+    window.dispatchEvent(new Event("futech:navigation"));
+  }
 }
 
 const DEFAULT_STORE = {
@@ -289,11 +295,18 @@ export default function App() {
 
   React.useEffect(() => {
     const onHash = () => setLocation(readPrototypeLocation());
+    const onNavigate = () => setLocation(readPrototypeLocation());
     window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    window.addEventListener("popstate", onNavigate);
+    window.addEventListener("futech:navigation", onNavigate);
+    return () => {
+      window.removeEventListener("hashchange", onHash);
+      window.removeEventListener("popstate", onNavigate);
+      window.removeEventListener("futech:navigation", onNavigate);
+    };
   }, []);
   React.useEffect(() => {
-    if (location.view === "home" && !window.location.hash && localStorage.getItem("futech.authed") === "1") return;
+    if (location.view === "home" && window.location.pathname === "/" && !window.location.hash && localStorage.getItem("futech.authed") === "1") return;
     setView(location.view);
     if (location.role) {
       setRole(location.role);
