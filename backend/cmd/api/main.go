@@ -24,7 +24,12 @@ func main() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	pool, err := db.Connect(ctx, cfg.DatabaseURL, db.PoolOptions{
+		MaxConns:        cfg.DBMaxConns,
+		MinConns:        cfg.DBMinConns,
+		MaxConnIdleTime: cfg.DBMaxConnIdle,
+		MaxConnLifetime: cfg.DBMaxConnLife,
+	})
 	if err != nil {
 		cancel()
 		logger.Error("database connection failed", "error", err)

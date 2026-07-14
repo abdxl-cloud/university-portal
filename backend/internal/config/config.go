@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +15,10 @@ type Config struct {
 	HTTPAddr         string
 	LogLevel         slog.Level
 	DatabaseURL      string
+	DBMaxConns       int32
+	DBMinConns       int32
+	DBMaxConnIdle    time.Duration
+	DBMaxConnLife    time.Duration
 	RedisURL         string
 	AllowedOrigins   []string
 	AccessTokenTTL   string
@@ -28,6 +33,10 @@ func Load() Config {
 		HTTPAddr:         env("HTTP_ADDR", ":8080"),
 		LogLevel:         logLevel(env("LOG_LEVEL", "info")),
 		DatabaseURL:      env("DATABASE_URL", "postgres://formbuilder:formbuilder@localhost:5432/formbuilder?sslmode=disable"),
+		DBMaxConns:       int32(intEnv("DB_MAX_CONNS", 25)),
+		DBMinConns:       int32(intEnv("DB_MIN_CONNS", 2)),
+		DBMaxConnIdle:    durationEnv("DB_MAX_CONN_IDLE", 5*time.Minute),
+		DBMaxConnLife:    durationEnv("DB_MAX_CONN_LIFETIME", time.Hour),
 		RedisURL:         env("REDIS_URL", "redis://localhost:6379/0"),
 		AllowedOrigins:   csvEnv("ALLOWED_ORIGINS", "http://127.0.0.1:4173,http://localhost:4173"),
 		AccessTokenTTL:   env("ACCESS_TOKEN_TTL", "15m"),
@@ -35,6 +44,18 @@ func Load() Config {
 		IdentitySecret:   env("IDENTITY_SECRET", "dev-identity-secret-change-me"),
 		IdentityTokenTTL: durationEnv("IDENTITY_TOKEN_TTL", 5*time.Minute),
 	}
+}
+
+func intEnv(key string, fallback int) int {
+	value := env(key, "")
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func durationEnv(key string, fallback time.Duration) time.Duration {
