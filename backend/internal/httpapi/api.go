@@ -18,6 +18,7 @@ import (
 	"formbuilder/backend/internal/httpapi/respond"
 	"formbuilder/backend/internal/identity"
 	"formbuilder/backend/internal/library"
+	"formbuilder/backend/internal/modules"
 	"formbuilder/backend/internal/ops"
 	"formbuilder/backend/internal/registrations"
 )
@@ -33,6 +34,7 @@ type API struct {
 	hostels  *hostels.Repo
 	clinic   *clinic.Repo
 	ops      *ops.Repo
+	modules  *modules.Repo
 	ident    *identity.Signer
 }
 
@@ -62,6 +64,7 @@ func New(opts Options) *API {
 		hostels:  hostels.NewRepo(opts.Pool),
 		clinic:   clinic.NewRepo(opts.Pool),
 		ops:      ops.NewRepo(opts.Pool),
+		modules:  modules.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret, opts.Config.IdentityTokenTTL),
 	}
 }
@@ -81,6 +84,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", a.health)
 	mux.HandleFunc("GET /api/v1/health", a.health)
 	mux.HandleFunc("GET /api/v1/version", a.version)
+	mux.HandleFunc("GET /api/v1/modules", a.listModules)
+	mux.HandleFunc("PATCH /api/v1/modules", a.setModuleEnabled)
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.HandleFunc("GET /api/v1/me", a.me)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
@@ -91,37 +96,37 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/academic/programs", a.programs)
 	mux.HandleFunc("GET /api/v1/students", a.students)
 	mux.HandleFunc("GET /api/v1/staff", a.staff)
-	mux.HandleFunc("GET /api/v1/fees/invoices", a.invoices)
-	mux.HandleFunc("POST /api/v1/fees/invoices/pay", a.payInvoice)
-	mux.HandleFunc("GET /api/v1/fees/payments", a.payments)
+	mux.HandleFunc("GET /api/v1/fees/invoices", a.moduleHandler("finance", a.invoices))
+	mux.HandleFunc("POST /api/v1/fees/invoices/pay", a.moduleHandler("finance", a.payInvoice))
+	mux.HandleFunc("GET /api/v1/fees/payments", a.moduleHandler("finance", a.payments))
 	mux.HandleFunc("GET /api/v1/courses", a.courses)
 	mux.HandleFunc("GET /api/v1/course-registrations", a.courseRegistrations)
 	mux.HandleFunc("POST /api/v1/course-registrations", a.submitCourseRegistration)
 	mux.HandleFunc("GET /api/v1/results", a.results)
-	mux.HandleFunc("GET /api/v1/hostels/halls", a.hostelHalls)
-	mux.HandleFunc("GET /api/v1/hostels/rooms", a.hostelRooms)
-	mux.HandleFunc("GET /api/v1/hostels/beds", a.hostelBeds)
-	mux.HandleFunc("GET /api/v1/hostels/applications", a.hostelApplications)
-	mux.HandleFunc("POST /api/v1/hostels/applications", a.applyHostel)
-	mux.HandleFunc("PATCH /api/v1/hostels/applications/decision", a.decideHostelApplication)
-	mux.HandleFunc("GET /api/v1/library/books", a.libraryBooks)
-	mux.HandleFunc("POST /api/v1/library/books", a.createBook)
-	mux.HandleFunc("GET /api/v1/library/books/lookup", a.lookupBook)
-	mux.HandleFunc("POST /api/v1/library/loans", a.borrowBook)
-	mux.HandleFunc("GET /api/v1/library/loans", a.libraryLoans)
-	mux.HandleFunc("POST /api/v1/library/loans/scan", a.scanCheckout)
-	mux.HandleFunc("POST /api/v1/library/loans/return-scan", a.scanReturn)
-	mux.HandleFunc("PATCH /api/v1/library/loans/return", a.returnLoan)
-	mux.HandleFunc("GET /api/v1/library/reservations", a.libraryReservations)
-	mux.HandleFunc("POST /api/v1/library/reservations", a.reserveBook)
-	mux.HandleFunc("GET /api/v1/identity/qr", a.identityQR)
-	mux.HandleFunc("GET /api/v1/verify/{token}", a.verifyToken)
-	mux.HandleFunc("GET /api/v1/clinic/patients", a.patientRecords)
-	mux.HandleFunc("POST /api/v1/clinic/appointments", a.bookAppointment)
-	mux.HandleFunc("GET /api/v1/clinic/appointments", a.clinicAppointments)
-	mux.HandleFunc("PATCH /api/v1/clinic/appointments/status", a.updateAppointmentStatus)
-	mux.HandleFunc("GET /api/v1/clinic/prescriptions", a.prescriptions)
-	mux.HandleFunc("GET /api/v1/clinic/pharmacy", a.pharmacy)
+	mux.HandleFunc("GET /api/v1/hostels/halls", a.moduleHandler("hostels", a.hostelHalls))
+	mux.HandleFunc("GET /api/v1/hostels/rooms", a.moduleHandler("hostels", a.hostelRooms))
+	mux.HandleFunc("GET /api/v1/hostels/beds", a.moduleHandler("hostels", a.hostelBeds))
+	mux.HandleFunc("GET /api/v1/hostels/applications", a.moduleHandler("hostels", a.hostelApplications))
+	mux.HandleFunc("POST /api/v1/hostels/applications", a.moduleHandler("hostels", a.applyHostel))
+	mux.HandleFunc("PATCH /api/v1/hostels/applications/decision", a.moduleHandler("hostels", a.decideHostelApplication))
+	mux.HandleFunc("GET /api/v1/library/books", a.moduleHandler("library", a.libraryBooks))
+	mux.HandleFunc("POST /api/v1/library/books", a.moduleHandler("library", a.createBook))
+	mux.HandleFunc("GET /api/v1/library/books/lookup", a.moduleHandler("library", a.lookupBook))
+	mux.HandleFunc("POST /api/v1/library/loans", a.moduleHandler("library", a.borrowBook))
+	mux.HandleFunc("GET /api/v1/library/loans", a.moduleHandler("library", a.libraryLoans))
+	mux.HandleFunc("POST /api/v1/library/loans/scan", a.moduleHandler("library", a.scanCheckout))
+	mux.HandleFunc("POST /api/v1/library/loans/return-scan", a.moduleHandler("library", a.scanReturn))
+	mux.HandleFunc("PATCH /api/v1/library/loans/return", a.moduleHandler("library", a.returnLoan))
+	mux.HandleFunc("GET /api/v1/library/reservations", a.moduleHandler("library", a.libraryReservations))
+	mux.HandleFunc("POST /api/v1/library/reservations", a.moduleHandler("library", a.reserveBook))
+	mux.HandleFunc("GET /api/v1/identity/qr", a.moduleHandler("identity", a.identityQR))
+	mux.HandleFunc("GET /api/v1/verify/{token}", a.moduleHandler("identity", a.verifyToken))
+	mux.HandleFunc("GET /api/v1/clinic/patients", a.moduleHandler("clinic", a.patientRecords))
+	mux.HandleFunc("POST /api/v1/clinic/appointments", a.moduleHandler("clinic", a.bookAppointment))
+	mux.HandleFunc("GET /api/v1/clinic/appointments", a.moduleHandler("clinic", a.clinicAppointments))
+	mux.HandleFunc("PATCH /api/v1/clinic/appointments/status", a.moduleHandler("clinic", a.updateAppointmentStatus))
+	mux.HandleFunc("GET /api/v1/clinic/prescriptions", a.moduleHandler("clinic", a.prescriptions))
+	mux.HandleFunc("GET /api/v1/clinic/pharmacy", a.moduleHandler("clinic", a.pharmacy))
 	mux.HandleFunc("GET /api/v1/approvals", a.approvals)
 	mux.HandleFunc("PATCH /api/v1/approvals/decision", a.decideApproval)
 	mux.HandleFunc("GET /api/v1/notifications", a.notifications)

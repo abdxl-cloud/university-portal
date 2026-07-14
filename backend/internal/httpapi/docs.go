@@ -47,6 +47,7 @@ const openAPISpec = `{
   "tags": [
     { "name": "System", "description": "Health and metadata endpoints" },
     { "name": "Auth", "description": "Demo in-memory authentication endpoints" },
+    { "name": "Modules", "description": "Deployment-level feature flags" },
     { "name": "Portal", "description": "Cross-module portal resources" },
     { "name": "Academic", "description": "Sessions, faculties, departments, programs, courses, registrations, and results" },
     { "name": "Finance", "description": "Invoices and payments" },
