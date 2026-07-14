@@ -1365,6 +1365,35 @@ function bsRow(base, semCourses, prev) {
   };
 }
 
+function generatedRecord({ matric, level, cgpa }) {
+  const completedTerms = Math.max(0, (parseInt(level, 10) / 100 - 1) * 2);
+  const target = Number(cgpa) || 3;
+  const rows = Array.from({ length: completedTerms }, (_, i) => {
+    const variance = ((bsHash(matric + "gpa" + i) % 81) - 40) / 100;
+    return {
+      tnu: 16 + (bsHash(matric + "units" + i) % 8),
+      gpa: Math.min(5, Math.max(0.6, target + variance)),
+    };
+  });
+  const carryovers = bsHash(matric + "carry") % 7 === 0
+    ? [{ code: "GST " + (100 + (bsHash(matric) % 4) * 100 + 2), status: "outstanding" }]
+    : [];
+  return { rows, carryovers };
+}
+
+function demoStudentRecord() {
+  const results = window.DATA.RESULTS || [];
+  return {
+    rows: results.map((result) => ({
+      tnu: result.courses.reduce((sum, course) => sum + course.units, 0),
+      gpa: result.gpa,
+    })),
+    carryovers: results.flatMap((result) => result.courses)
+      .filter((course) => course.grade === "F")
+      .map((course) => ({ code: course.code, status: "outstanding" })),
+  };
+}
+
 function levelCohort(dept, level, store, session) {
   session = session || "cur";
   const { genName, HOD_RESULTS } = window.ROLE_DATA;
@@ -1413,7 +1442,7 @@ function levelCohort(dept, level, store, session) {
     const drift = ((bsHash(matric + "cg") % 100) / 100 - 0.5) * 0.8;
     const sgpaGuess = semCourses.reduce((a, g) => a + (g.grade ? GP_MAP[g.grade] * g.units : 0), 0) / (semCourses.reduce((a, g) => a + (g.grade ? g.units : 0), 0) || 1);
     const target = Math.min(5, Math.max(0.6, sgpaGuess + drift));
-    const hist = window.generatedRecord({ matric, level, cgpa: target.toFixed(2) });
+    const hist = generatedRecord({ matric, level, cgpa: target.toFixed(2) });
     const pct = hist.rows.reduce((a, r) => a + r.tnu, 0);
     const pgp = hist.rows.reduce((a, r) => a + Math.round(r.gpa * r.tnu), 0);
     const outstanding = hist.carryovers.filter((c) => c.status !== "cleared").map((c) => c.code + "(3)");
@@ -1428,7 +1457,7 @@ function levelCohort(dept, level, store, session) {
   if (session === "cur" && dept.code === "CSC" && level === "300L" && window.currentResults) {
     const cur = window.currentResults(store);
     const { STUDENT } = window.DATA;
-    const real = window.demoStudentRecord();
+    const real = demoStudentRecord();
     const pct = real.rows.reduce((a, r) => a + r.tnu, 0);
     const pgp = real.rows.reduce((a, r) => a + Math.round(r.gpa * r.tnu), 0);
     const outstanding = real.carryovers
