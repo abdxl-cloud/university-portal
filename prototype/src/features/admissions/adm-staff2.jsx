@@ -1,6 +1,6 @@
 import React from "react";
 const { Avatar, Btn, Card, Empty, Icon, Modal, ModalHead, SPill, Seg, Tag } = window;
-/* Admissions — STAFF screening review, document decisions, queries, eligibility, quota, audit */
+/* Admissions: STAFF screening review, document decisions, queries, eligibility, quota, audit */
 
 /* ============ SCREENING REVIEW ============ */
 function AdmReview({ store, actions, go }) {
@@ -45,7 +45,7 @@ function AdmReview({ store, actions, go }) {
       <Card>
         {filtered.length === 0 ? <Empty icon="check" title="Nothing here" sub="No candidates match this view." /> : (
           <>
-            <div style={{ overflowX: "auto" }}>
+            <div className="u-table-scroll">
               <table className="u-table">
                 <thead><tr><th>Candidate</th><th>Programme</th><th>Faculty</th><th className="u-right">UTME</th><th>Status</th><th></th></tr></thead>
                 <tbody>
@@ -55,7 +55,7 @@ function AdmReview({ store, actions, go }) {
                       <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => setOpenId(c.id)}>
                         <td><div className="u-row" style={{ gap: 10 }}><Avatar initials={c.name.split(" ").map((x) => x[0]).slice(0, 2).join("")} size={30} /><div><div style={{ fontWeight: 500 }}>{c.name}{c._live && <Tag variant="accent" style={{ marginLeft: 6 }}>You</Tag>}</div><div className="u-meta fb-mono">{c.jamb}</div></div></div></td>
                         <td className="u-muted">{A.progById(c.prog).name}</td>
-                        <td className="u-meta">{f ? f.short : "—"}</td>
+                        <td className="u-meta">{f ? f.short : "Not available"}</td>
                         <td className="u-right u-num">{c.score}{c.score < A.progById(c.prog).cutoff && <Tag variant="warning" style={{ marginLeft: 6 }}>low</Tag>}</td>
                         <td><SPill tone={A.STATES[c._state].tone}>{A.STATES[c._state].label}</SPill></td>
                         <td className="u-right"><Icon name="chevron" size={15} style={{ color: "var(--fg-subtle)" }} /></td>
@@ -73,7 +73,7 @@ function AdmReview({ store, actions, go }) {
   );
 }
 
-/* candidate detail — documents, decisions, queries */
+/* candidate detail: documents, decisions, queries */
 function AdmCandidateDetail({ store, actions, c, onBack }) {
   const A = window.ADM;
   const prog = A.progById(c.prog);
@@ -148,8 +148,8 @@ function AdmCandidateDetail({ store, actions, c, onBack }) {
           {["submitted", "under_review", "queried"].includes(c._state) && <Btn variant="secondary" icon="info" onClick={() => setQueryOpen(true)}>Raise query</Btn>}
           {["submitted", "under_review", "queried"].includes(c._state) && <Btn variant="secondary" icon="check" onClick={() => act("screened", "Screening completed")}>Mark screened</Btn>}
           {["screened", "under_review"].includes(c._state) && eligible && <Btn variant="accent" icon="cap" onClick={() => act("admitted", "Recommended & admitted")}>Recommend & admit</Btn>}
-          {["screened", "under_review"].includes(c._state) && !eligible && <Btn variant="secondary" icon="x" onClick={() => act("ineligible", "Marked ineligible — below cutoff")}>Mark ineligible</Btn>}
-          {c._state === "admitted" && <Tag variant="success" dot>Admitted — awaiting candidate acceptance</Tag>}
+          {["screened", "under_review"].includes(c._state) && !eligible && <Btn variant="secondary" icon="x" onClick={() => act("ineligible", "Marked ineligible: below cutoff")}>Mark ineligible</Btn>}
+          {c._state === "admitted" && <Tag variant="success" dot>Admitted: awaiting candidate acceptance</Tag>}
         </div>
         {!eligible && <div className="u-formerr" style={{ marginTop: 12 }}><Icon name="info" size={14} /> Score below the {prog.name} cutoff. Recommend change of course or mark ineligible.</div>}
       </Card>
@@ -159,7 +159,7 @@ function AdmCandidateDetail({ store, actions, c, onBack }) {
           <ModalHead title="Raise a query" sub={"To " + c.name} onClose={() => setQueryOpen(false)} />
           <div className="u-pad u-stack" style={{ gap: 12 }}>
             <div className="u-row u-wrap" style={{ gap: 6 }}>
-              {["O'Level result is unclear — re-upload a clearer copy.", "Passport photograph does not meet requirements.", "Date of birth mismatch with birth certificate."].map((q) => (
+              {["O'Level result is unclear: re-upload a clearer copy.", "Passport photograph does not meet requirements.", "Date of birth mismatch with birth certificate."].map((q) => (
                 <button key={q} className="u-chipbtn" onClick={() => setQueryText(q)} style={{ textAlign: "left" }}>{q}</button>
               ))}
             </div>
@@ -209,7 +209,7 @@ function AdmEligibility({ store, actions, go }) {
         </div>
       </Card>
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead><tr><th className="u-right" style={{ width: 50 }}>#</th><th>Candidate</th><th className="u-right">UTME</th><th>Eligible</th><th>Status</th></tr></thead>
             <tbody>
@@ -249,7 +249,7 @@ function AdmQuota({ store }) {
 
   return (
     <div className="u-content">
-      {window.admPHead("Quota Tracking", "Admissions against approved quota — grouped by faculty")}
+      {window.admPHead("Quota Tracking", "Admissions against approved quota: grouped by faculty")}
       <div className="u-stack" style={{ gap: 22 }}>
         {groups.map(({ faculty, progs }) => {
           const facQuota = progs.reduce((s, p) => s + p.quota, 0);

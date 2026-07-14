@@ -1,4 +1,4 @@
-/* Campus services — Library & Clinic data (student + staff). Reuses window.DATA. */
+/* Campus services: Library & Clinic data (student + staff). Reuses window.DATA. */
 (function () {
   const fmt = (n) => "\u20a6" + n.toLocaleString("en-NG");
   const init = (n) => n.split(" ").map((x) => x[0]).slice(0, 2).join("");
@@ -32,7 +32,7 @@
     { name: "FUTECH Institutional Repository", provider: "FUTECH", desc: "Past projects, theses & dissertations.", icon: "doc" },
   ];
 
-  // student's current loans (seed). due dates relative to "now" — one overdue.
+  // student's current loans (seed). due dates relative to "now": one overdue.
   const MY_LOANS = [
     { id: "L1", bookId: "b3", title: "Operating System Concepts", author: "Silberschatz & Galvin", borrowed: "Nov 24, 2025", due: "Dec 8, 2025", overdue: false, renewed: false },
     { id: "L2", bookId: "b6", title: "Calculus: Early Transcendentals", author: "James Stewart", borrowed: "Nov 10, 2025", due: "Nov 24, 2025", overdue: true, renewed: false },
@@ -60,13 +60,13 @@
     { id: "AP1", service: "General Consultation", date: "Dec 9, 2025", time: "9:30", status: "confirmed", doctor: "Dr. A. Bello" },
   ];
   const VISITS = [
-    { date: "Oct 2, 2025", service: "General Consultation", doctor: "Dr. A. Bello", notes: "Malaria — prescribed ACT, advised rest & fluids." },
-    { date: "Aug 18, 2025", service: "Laboratory Test", doctor: "Lab Unit", notes: "Malaria parasite test — positive (mild)." },
+    { date: "Oct 2, 2025", service: "General Consultation", doctor: "Dr. A. Bello", notes: "Malaria: prescribed ACT, advised rest & fluids." },
+    { date: "Aug 18, 2025", service: "Laboratory Test", doctor: "Lab Unit", notes: "Malaria parasite test: positive (mild)." },
     { date: "Feb 11, 2025", service: "Immunization", doctor: "Nurse F. Udo", notes: "Hepatitis B booster administered." },
   ];
   const PRESCRIPTIONS = [
-    { date: "Oct 2, 2025", drug: "Artemether/Lumefantrine", dosage: "80/480mg — twice daily, 3 days", doctor: "Dr. A. Bello" },
-    { date: "Oct 2, 2025", drug: "Paracetamol", dosage: "1g — three times daily, 5 days", doctor: "Dr. A. Bello" },
+    { date: "Oct 2, 2025", drug: "Artemether/Lumefantrine", dosage: "80/480mg: twice daily, 3 days", doctor: "Dr. A. Bello" },
+    { date: "Oct 2, 2025", drug: "Paracetamol", dosage: "1g: three times daily, 5 days", doctor: "Dr. A. Bello" },
   ];
   const LABS = [
     { date: "Aug 18, 2025", test: "Malaria Parasite (MP)", result: "Positive (+)", status: "Reviewed" },
@@ -99,16 +99,16 @@
   }
   const LIB_STATS = { titles: 24800, copies: 41200, members: 16540 };
 
-  /* Collections — how a school librarian organises the shelf */
+  /* Collections: how a school librarian organises the shelf */
   const LIB_COLLECTIONS = [
     { id: "new", name: "New Arrivals", icon: "spark", desc: "Recently catalogued items, on display for 30 days.", seed: ["b4", "b9"] },
     { id: "reserve", name: "Course Reserves", icon: "book", desc: "High-demand textbooks held for short 3-day loans.", seed: ["b1", "b2", "b3", "b5"] },
-    { id: "reference", name: "Reference Only", icon: "info", desc: "Non-circulating — consult within the library.", seed: ["b11", "b7"] },
+    { id: "reference", name: "Reference Only", icon: "info", desc: "Non-circulating: consult within the library.", seed: ["b11", "b7"] },
     { id: "fiction", name: "Fiction & Leisure", icon: "bookOpen", desc: "Novels and general reading.", seed: ["b12"] },
     { id: "theses", name: "Projects & Theses", icon: "doc", desc: "Past student projects and dissertations.", seed: [] },
   ];
 
-  /* Mock ISBN lookup — what the barcode scanner "resolves" to.
+  /* Mock ISBN lookup: what the barcode scanner "resolves" to.
      Backend would hit a real bibliographic API; here we fake the auto-populate. */
   const ISBN_DB = {
     "9780134685991": { title: "Effective Java", author: "Joshua Bloch", publisher: "Addison-Wesley", year: 2018, cat: "Computer Science", call: "QA76.73.J38 B56", pages: 412 },
@@ -153,7 +153,7 @@
     clinic: { name: "Dr. Ahmed Bello", first: "Ahmed", initials: "AB", title: "Chief Medical Officer", role: "Health Services · Clinic", staffId: "FUT/STF/MED/0009", department: "Health Services", faculty: "Medical Centre", email: "a.bello@futech.edu.ng", phone: "+234 805 220 9911", office: "Medical Centre, Rm 1", area: "Family Medicine" },
   };
   const NOTIF = {
-    librarian: [{ id: "lib1", icon: "bookOpen", tone: "warning", title: "3 books overdue today", body: "Overdue loans are accruing fines — follow up with borrowers.", time: "1h ago", unread: true }, { id: "lib2", icon: "book", tone: "accent", title: "5 reservations waiting", body: "Returned copies are ready to be issued to the next in line.", time: "Yesterday", unread: true }],
+    librarian: [{ id: "lib1", icon: "bookOpen", tone: "warning", title: "3 books overdue today", body: "Overdue loans are accruing fines: follow up with borrowers.", time: "1h ago", unread: true }, { id: "lib2", icon: "book", tone: "accent", title: "5 reservations waiting", body: "Returned copies are ready to be issued to the next in line.", time: "Yesterday", unread: true }],
     clinic: [{ id: "cl1", icon: "heart", tone: "warning", title: "6 appointments today", body: "Patients are waiting to be seen at the medical centre.", time: "30m ago", unread: true }, { id: "cl2", icon: "pill", tone: "danger", title: "Ibuprofen out of stock", body: "Pharmacy inventory needs restocking.", time: "2h ago", unread: true }],
   };
 

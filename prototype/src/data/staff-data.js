@@ -83,26 +83,26 @@
   const STAFF_CONTENT = {
     "CSC 305": {
       materials: [
-        { name: "Wk 1 — Relational Model & ER Design.pdf", type: "PDF", size: "2.4 MB", date: "Oct 6" },
-        { name: "Wk 3 — Normalisation (1NF–BCNF).pdf", type: "PDF", size: "1.9 MB", date: "Oct 20" },
+        { name: "Wk 1: Relational Model & ER Design.pdf", type: "PDF", size: "2.4 MB", date: "Oct 6" },
+        { name: "Wk 3: Normalisation (1NF–BCNF).pdf", type: "PDF", size: "1.9 MB", date: "Oct 20" },
         { name: "SQL Lab Pack.zip", type: "ZIP", size: "5.1 MB", date: "Oct 22" },
       ],
       assignments: [
-        { id: "a305-1", title: "Assignment 1 — ER diagram for a library", due: "Oct 25, 2025", points: 20 },
-        { id: "a305-2", title: "Lab 2 — Normalise the orders schema", due: "Nov 8, 2025", points: 30 },
+        { id: "a305-1", title: "Assignment 1: ER diagram for a library", due: "Oct 25, 2025", points: 20 },
+        { id: "a305-2", title: "Lab 2: Normalise the orders schema", due: "Nov 8, 2025", points: 30 },
       ],
       posts: [
-        { who: "Dr. Florence Okonkwo", time: "Oct 22, 2025", body: "SQL Lab Pack uploaded. Bring your laptops to Lab 2 on Friday — we'll work through joins and subqueries together." },
+        { who: "Dr. Florence Okonkwo", time: "Oct 22, 2025", body: "SQL Lab Pack uploaded. Bring your laptops to Lab 2 on Friday: we'll work through joins and subqueries together." },
       ],
     },
     "CSC 205": {
-      materials: [{ name: "Data Comms — Course Outline.pdf", type: "PDF", size: "0.8 MB", date: "Sep 30" }],
-      assignments: [{ id: "a205-1", title: "Assignment 1 — Encoding schemes", due: "Oct 18, 2025", points: 20 }],
+      materials: [{ name: "Data Comms: Course Outline.pdf", type: "PDF", size: "0.8 MB", date: "Sep 30" }],
+      assignments: [{ id: "a205-1", title: "Assignment 1: Encoding schemes", due: "Oct 18, 2025", points: 20 }],
       posts: [],
     },
     "CSC 411": {
       materials: [{ name: "Intro to MapReduce.pptx", type: "PPTX", size: "3.3 MB", date: "Oct 10" }],
-      assignments: [{ id: "a411-1", title: "Project proposal — analytics pipeline", due: "Nov 1, 2025", points: 40 }],
+      assignments: [{ id: "a411-1", title: "Project proposal: analytics pipeline", due: "Nov 1, 2025", points: 40 }],
       posts: [],
     },
   };
@@ -146,7 +146,7 @@
   };
 
   const STAFF_NOTIFICATIONS = [
-    { id: "sn1", icon: "doc", tone: "warning", title: "12 new submissions to grade", body: "Assignment 1 (CSC 305) — submissions are in. Grade before results submission.", time: "1h ago", unread: true },
+    { id: "sn1", icon: "doc", tone: "warning", title: "12 new submissions to grade", body: "Assignment 1 (CSC 305): submissions are in. Grade before results submission.", time: "1h ago", unread: true },
     { id: "sn2", icon: "chart", tone: "accent", title: "Result submission window open", body: "Submit CSC 305 results to the HOD before December 19.", time: "Yesterday", unread: true },
     { id: "sn3", icon: "book", tone: "neutral", title: "CSC 205 results approved", body: "The HOD approved your CSC 205 results. They are now visible to students.", time: "3 days ago", unread: false },
   ];

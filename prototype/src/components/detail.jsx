@@ -117,149 +117,184 @@ function VenueDetail({ code }) {
   );
 }
 
-const GRADE_TONE = { A: "success", B: "accent", C: undefined, D: "warning", E: "warning", F: "danger" };
-
-function studentInitials(name) {
-  return String(name || "Student").trim().split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+/* ---------- student academic record (TNU / TCP / GPA / CGPA history) ---------- */
+function hashStr(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h;
 }
 
-function studentHash(value) {
-  let hash = 2166136261;
-  for (const char of String(value || "student")) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
+const SEM_NAMES = ["First Semester", "Second Semester"];
+const REMARK = (gpa) => (gpa < 1.5 ? "Probation" : "Good Standing");
+
+/* semesters a student of this level has already completed (current: 2025/2026 First) */
+function pastSemesters(level) {
+  const n = ({ "100L": 0, "200L": 2, "300L": 4, "400L": 6, "500L": 8 })[level] ?? 4;
+  const out = [];
+  const startYear = 2025 - n / 2;
+  for (let i = 0; i < n; i++) {
+    const yr = startYear + Math.floor(i / 2);
+    out.push({ session: yr + "/" + (yr + 1), semester: SEM_NAMES[i % 2], level: (100 + Math.floor(i / 2) * 100) + "L" });
   }
-  return hash >>> 0;
+  return out;
 }
 
-function resultSummary(result, totals) {
-  const units = result.courses.reduce((sum, course) => sum + course.units, 0);
-  const points = result.courses.reduce((sum, course) => sum + course.units * course.gp, 0);
-  totals.units += units;
-  totals.points += points;
-  return {
-    session: result.session,
-    semester: result.semester.replace(" Semester", ""),
-    level: result.level.replace(" Level", "L"),
-    units,
-    points,
-    gpa: units ? points / units : result.gpa,
-    cgpa: totals.units ? totals.points / totals.units : result.gpa,
-  };
-}
-
-function localAcademicRecord(student) {
-  const demoStudent = window.DATA && window.DATA.STUDENT;
-  const isDemoStudent = demoStudent && student.matric === demoStudent.matric;
-
-  if (isDemoStudent && Array.isArray(window.DATA.RESULTS)) {
-    const totals = { units: 0, points: 0 };
-    const semesters = [...window.DATA.RESULTS].reverse().map((result) => resultSummary(result, totals));
-    const failed = window.DATA.RESULTS.flatMap((result) => result.courses)
-      .filter((course) => course.grade === "F")
-      .map((course) => ({ code: course.code, title: course.title }));
-    return { semesters, failed, units: totals.units, cgpa: Number(demoStudent.cgpa || (totals.points / totals.units)) };
+/* deterministic history for generated students, calibrated to a target CGPA when known */
+function generatedRecord(key) {
+  const sems = pastSemesters(key.level || "300L");
+  let h = hashStr(key.matric || key.name || "x");
+  const rnd = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+  let rows = sems.map((s) => ({ ...s, tnu: 18 + Math.round(rnd() * 6), gpa: 1.2 + rnd() * 3.6 }));
+  const target = key.cgpa ? parseFloat(key.cgpa) : 1.8 + rnd() * 2.9;
+  if (rows.length) {
+    const cgpa = rows.reduce((a, r) => a + r.gpa * r.tnu, 0) / rows.reduce((a, r) => a + r.tnu, 0);
+    const shift = target - cgpa;
+    rows = rows.map((r) => ({ ...r, gpa: Math.min(5, Math.max(0.4, r.gpa + shift)) }));
   }
+  // carryovers: seeded from the same hash so the record is stable
+  const POOL = [
+    { code: "CSC 299", title: "Discrete Mathematics" }, { code: "MTH 201", title: "Calculus I" },
+    { code: "CSC 201", title: "Computer Programming I" }, { code: "PHY 102", title: "General Physics II" },
+  ];
+  const nCarry = key.carryover ? Math.max(1, h % 2 + 1) : (target < 3 ? h % 3 : h % 4 === 0 ? 1 : 0);
+  const carryovers = [];
+  for (let i = 0; i < Math.min(nCarry, sems.length ? 2 : 0); i++) {
+    const c = POOL[(h + i * 7) % POOL.length];
+    if (carryovers.some((x) => x.code === c.code)) continue;
+    const failedIn = sems[(h + i * 3) % sems.length];
+    const cleared = (h + i) % 2 === 0 && failedIn !== sems[sems.length - 1];
+    carryovers.push({
+      ...c,
+      failedIn: failedIn.session + " · " + failedIn.semester,
+      failScore: 25 + ((h + i * 11) % 14),
+      status: cleared ? "cleared" : "retaking",
+      clearedGrade: cleared ? ["C", "D"][(h + i) % 2] : null,
+      attempts: cleared ? 2 : 2,
+    });
+  }
+  return { rows, carryovers, cgpa: target, standing: rows.length && rows[rows.length - 1].gpa < 1.5 ? "Probation" : "Good Standing" };
+}
 
-  // Other prototype students are generated locally from their matric number so
-  // their record stays stable across refreshes without calling the API.
-  const seed = studentHash(student.matric);
-  const currentLevel = Math.max(200, parseInt(student.level, 10) || 300);
-  const semesterCount = Math.max(2, Math.min(8, (currentLevel / 100 - 1) * 2));
-  const target = Math.max(1.25, Math.min(4.92, Number(student.cgpa) || 2.55 + (seed % 220) / 100));
-  const firstYear = 2025 - Math.ceil(semesterCount / 2);
-  let totalUnits = 0;
-  let totalPoints = 0;
-  const semesters = Array.from({ length: semesterCount }, (_, index) => {
-    const units = 18 + ((seed >>> (index % 16)) % 5);
-    const adjustment = ((seed + index * 17) % 31 - 15) / 100;
-    const gpa = Math.max(1, Math.min(5, target + adjustment));
-    const points = Math.round(gpa * units);
-    totalUnits += units;
-    totalPoints += points;
-    const year = firstYear + Math.floor(index / 2);
-    return {
-      session: year + "/" + (year + 1),
-      semester: index % 2 === 0 ? "First" : "Second",
-      level: (100 + Math.floor(index / 2) * 100) + "L",
-      units,
-      points,
-      gpa: points / units,
-      cgpa: totalPoints / totalUnits,
-    };
+/* the demo student's record comes from her real seeded transcripts */
+function demoStudentRecord() {
+  const { RESULTS, STUDENT } = window.DATA;
+  const rows = RESULTS.slice().reverse().map((r) => ({
+    session: r.session, semester: r.semester, level: r.level.replace(" Level", "L"),
+    tnu: r.courses.reduce((a, c) => a + c.units, 0), gpa: r.gpa,
+  }));
+  const fails = [];
+  RESULTS.forEach((r) => r.courses.forEach((c) => {
+    if (c.grade === "F") fails.push({
+      code: c.code, title: c.title, failedIn: r.session + " · " + r.semester, failScore: c.score,
+      status: "retaking", clearedGrade: null, attempts: 2,
+    });
+  }));
+  return { rows, carryovers: fails, cgpa: STUDENT.cgpa, standing: STUDENT.standing };
+}
+
+function StudentRecord({ k }) {
+  const { STUDENT } = window.DATA;
+  const isMe = k.matric === STUDENT.matric;
+  const rec = isMe ? demoStudentRecord() : generatedRecord(k);
+  const name = isMe ? STUDENT.name : k.name;
+  const initials = (name || "S").split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
+  let runTnu = 0, runTcp = 0;
+  const history = rec.rows.map((r) => {
+    const tcp = Math.round(r.gpa * r.tnu);
+    runTnu += r.tnu; runTcp += tcp;
+    return { ...r, tcp, cgpa: runTcp / runTnu, remarks: REMARK(r.gpa) };
   });
-  const failed = student.carryover || student.grade === "F"
-    ? [{ code: student.fromCourse || "CSC 299", title: student.fromCourse ? "Outstanding course" : "Discrete Mathematics" }]
-    : [];
-  return { semesters, failed, units: totalUnits, cgpa: Number(student.cgpa) || totalPoints / totalUnits };
-}
+  const GRADE_TONE = { A: "success", B: "success", C: "accent", D: "warning", E: "warning", F: "danger" };
 
-function StudentDetail({ student }) {
-  const record = localAcademicRecord(student);
-  const standing = record.cgpa < 1.5 ? "Probation" : record.failed.length ? "Good standing · carryover" : "Good standing";
   return (
     <>
-      <div className="u-row" style={{ gap: 12, marginBottom: 18, alignItems: "flex-start" }}>
-        <Avatar initials={studentInitials(student.name)} size={46} />
-        <div className="u-grow">
-          <div style={{ fontWeight: 600, fontSize: 15 }}>{student.name || "Student"}</div>
-          <div className="u-meta fb-mono" style={{ marginTop: 2 }}>{student.matric || "—"}</div>
-          <div className="u-row u-wrap" style={{ gap: 6, marginTop: 7 }}>
-            <Tag>{student.level || "300L"}</Tag>
-            <Tag variant={record.cgpa < 1.5 ? "danger" : record.failed.length ? "warning" : "success"} dot>{standing}</Tag>
+      <div className="u-row u-wrap" style={{ gap: 14, marginBottom: 14, justifyContent: "space-between" }}>
+        <div className="u-row" style={{ gap: 12 }}>
+          <Avatar initials={initials} size={46} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{name}</div>
+            <div className="u-meta fb-mono">{k.matric}{k.level ? " · " + k.level : ""}{isMe ? " · " + STUDENT.programme : ""}</div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div className="u-meta">CGPA</div>
+          <div className="u-row" style={{ gap: 8, justifyContent: "flex-end" }}>
+            <span className="u-h2 u-num">{Number(rec.cgpa).toFixed(2)}</span>
+            <Tag variant={rec.standing === "Probation" ? "danger" : "success"} dot>{rec.standing}</Tag>
           </div>
         </div>
       </div>
 
-      <div className="u-grid u-grid--3" style={{ gap: 12, marginBottom: 18 }}>
-        <div className="u-stat"><div className="u-stat__k">CGPA</div><div className="u-stat__v u-num">{record.cgpa.toFixed(2)}</div><div className="u-stat__sub">5.00 scale</div></div>
-        <div className="u-stat"><div className="u-stat__k">Units earned</div><div className="u-stat__v u-num">{record.units}</div><div className="u-stat__sub">Released results</div></div>
-        <div className="u-stat"><div className="u-stat__k">Carryovers</div><div className="u-stat__v u-num" style={{ color: record.failed.length ? "var(--danger)" : undefined }}>{record.failed.length}</div><div className="u-stat__sub">Outstanding</div></div>
-      </div>
-
-      {student.fromCourse && (
-        <div style={{ marginBottom: 18 }}>
-          <div className="u-meta" style={{ marginBottom: 7 }}>Selected result</div>
-          <Row k={student.fromCourse} v={
-            <span className="u-row" style={{ gap: 8 }}>
-              {student.score !== undefined && <span className="u-num">{student.score}%</span>}
-              {student.grade && <Tag variant={GRADE_TONE[student.grade]}>{student.grade}</Tag>}
-            </span>
-          } />
+      {k.fromCourse && (
+        <div className="u-pad-sm" style={{ borderRadius: "var(--r-md)", background: "var(--bg-sunken)", marginBottom: 14, fontSize: 13 }}>
+          <span className="u-meta">On this sheet · </span>
+          <span className="fb-mono" style={{ fontWeight: 600 }}>{k.fromCourse}</span>
+          {k.score != null && <> · <span className="u-num" style={{ fontWeight: 600 }}>{k.score}/100</span></>}
+          {k.grade && <> · <Tag variant={GRADE_TONE[k.grade]}>{k.grade}</Tag></>}
         </div>
       )}
 
-      <div className="u-meta" style={{ marginBottom: 9 }}>Semester history</div>
-      <div className="u-table-scroll" style={{ margin: "0 -2px" }}>
-        <table className="u-table">
-          <thead><tr><th>Session</th><th>Semester</th><th>Level</th><th className="u-right">TNU</th><th className="u-right">TCP</th><th className="u-right">GPA</th><th className="u-right">CGPA</th></tr></thead>
-          <tbody>
-            {[...record.semesters].reverse().map((semester) => (
-              <tr key={semester.session + semester.semester}>
-                <td className="fb-mono">{semester.session}</td>
-                <td>{semester.semester}</td>
-                <td>{semester.level}</td>
-                <td className="u-right u-num">{semester.units}</td>
-                <td className="u-right u-num">{semester.points}</td>
-                <td className="u-right u-num">{semester.gpa.toFixed(2)}</td>
-                <td className="u-right u-num" style={{ fontWeight: 600 }}>{semester.cgpa.toFixed(2)}</td>
+      <div className="u-meta" style={{ fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em", fontSize: 11 }}>Academic history</div>
+      {history.length === 0 ? (
+        <div className="u-meta" style={{ marginBottom: 14 }}>Fresh student: this is their first semester, so there is no prior record yet.</div>
+      ) : (
+        <div style={{ overflowX: "auto", marginBottom: 16 }}>
+          <table className="u-table">
+            <thead><tr><th>Session</th><th>Semester</th><th>Level</th><th className="u-right">TNU</th><th className="u-right">TCP</th><th className="u-right">GPA</th><th className="u-right">CGPA</th><th>Remarks</th></tr></thead>
+            <tbody>
+              {history.map((r, i) => (
+                <tr key={i}>
+                  <td className="fb-mono" style={{ fontSize: 12 }}>{r.session}</td>
+                  <td>{r.semester.replace(" Semester", "")}</td>
+                  <td><Tag>{r.level}</Tag></td>
+                  <td className="u-right u-num">{r.tnu}</td>
+                  <td className="u-right u-num">{r.tcp}</td>
+                  <td className="u-right u-num" style={{ fontWeight: 600 }}>{r.gpa.toFixed(2)}</td>
+                  <td className="u-right u-num">{r.cgpa.toFixed(2)}</td>
+                  <td><Tag variant={r.remarks === "Probation" ? "danger" : "success"} dot>{r.remarks}</Tag></td>
+                </tr>
+              ))}
+              <tr>
+                <td className="fb-mono" style={{ fontSize: 12 }}>2025/2026</td>
+                <td>First</td>
+                <td><Tag>{k.level || "300L"}</Tag></td>
+                <td className="u-right u-num">{isMe && window.__store && window.__store.registration ? (window.__store.registration.units ?? "Not available") : "Not available"}</td>
+                <td className="u-right u-meta" colSpan={3}>in progress</td>
+                <td><Tag variant="accent" dot>Current</Tag></td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {record.failed.length > 0 && (
-        <div style={{ marginTop: 18 }}>
-          <div className="u-meta" style={{ marginBottom: 6 }}>Outstanding courses</div>
-          {record.failed.map((course) => <Row key={course.code} k={course.code} v={<span>{course.title} <Tag variant="danger">Carryover</Tag></span>} />)}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div className="u-meta" style={{ fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em", fontSize: 11 }}>Carryovers &amp; attempts</div>
+      {rec.carryovers.length === 0 ? (
+        <div className="u-row" style={{ gap: 8 }}>
+          <Icon name="check" size={14} style={{ color: "var(--success)" }} />
+          <span className="u-meta">No carryovers. Every registered course has been passed at first attempt.</span>
+        </div>
+      ) : (
+        <div className="u-stack" style={{ gap: 8 }}>
+          {rec.carryovers.map((c) => (
+            <div key={c.code} className="u-row u-wrap" style={{ gap: 10, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="u-row" style={{ gap: 8 }}><span className="fb-mono" style={{ fontWeight: 600, fontSize: 12.5 }}>{c.code}</span><span style={{ fontSize: 13 }}>{c.title}</span></div>
+                <div className="u-meta" style={{ marginTop: 2 }}>1st attempt: <Tag variant="danger">F</Tag> {c.failScore}/100 · {c.failedIn}</div>
+              </div>
+              {c.status === "cleared"
+                ? <Tag variant="success" dot>Cleared · {c.clearedGrade} at 2nd attempt</Tag>
+                : <Tag variant="warning" dot>Retaking this semester · attempt {c.attempts}</Tag>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="u-meta" style={{ marginTop: 16, fontSize: 11.5 }}>TNU: total number of units registered · TCP: total credit points earned · GPA on a 5.00 scale · Probation when semester GPA falls below 1.50.</div>
     </>
   );
 }
 
-const DETAIL_TITLES = { course: "Course details", lecturer: "Lecturer", venue: "Venue", student: "Academic record" };
+const DETAIL_TITLES = { course: "Course details", lecturer: "Lecturer", venue: "Venue", student: "Student academic record" };
 
 function DetailLayer() {
   const [d, setD] = React.useState(null);
@@ -270,13 +305,13 @@ function DetailLayer() {
   }, []);
   if (!d) return null;
   return (
-    <Modal lg={d.type === "student"} onClose={() => setD(null)}>
+    <Modal onClose={() => setD(null)} lg={d.type === "student"}>
       <ModalHead title={DETAIL_TITLES[d.type]} onClose={() => setD(null)} />
       <div className="u-pad">
         {d.type === "course" && <CourseDetail code={d.key} />}
         {d.type === "lecturer" && <LecturerDetail name={d.key} />}
         {d.type === "venue" && <VenueDetail code={d.key} />}
-        {d.type === "student" && <StudentDetail student={d.key || {}} />}
+        {d.type === "student" && <StudentRecord k={d.key} />}
       </div>
     </Modal>
   );
@@ -323,4 +358,4 @@ function NotificationsPanel({ items, onClose, onReadAll }) {
 /* ---------- print helper: print just the marked region ---------- */
 function printRegion() { window.print(); }
 
-Object.assign(window, { showDetail, Ref, DetailLayer, NotificationsPanel, printRegion });
+Object.assign(window, { showDetail, Ref, DetailLayer, NotificationsPanel, printRegion, generatedRecord, demoStudentRecord });

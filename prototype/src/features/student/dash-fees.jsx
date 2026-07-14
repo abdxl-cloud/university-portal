@@ -26,8 +26,8 @@ function Dashboard({ store, go }) {
     .sort((a, b) => TIMETABLE.periods.indexOf(a.start) - TIMETABLE.periods.indexOf(b.start));
 
   const regStatus = store.registration.status;
-  const regLabel = { none: "Not started", pending: "Pending approval", approved: "Approved" }[regStatus];
-  const regTone = { none: "neutral", pending: "warning", approved: "success" }[regStatus];
+  const regLabel = { none: "Not started", pending: "Pending approval", query: "Returned to you", approved: "Approved" }[regStatus];
+  const regTone = { none: "neutral", pending: "warning", query: "danger", approved: "success" }[regStatus];
 
   const pending = (window.pendingAssignments ? window.pendingAssignments(store) : []).slice(0, 3);
 
@@ -145,21 +145,58 @@ function Dashboard({ store, go }) {
               <div className="u-h3">Today · {today}</div>
               <a className="fb-link" onClick={() => go("timetable")}>Full timetable</a>
             </div>
-            {todays.length === 0 ? <Empty icon="calendar" title="No classes today" /> : (
-              <div className="u-stack" style={{ gap: 8 }}>
-                {todays.map((l, i) => (
-                  <div key={i} className="u-row" style={{ gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
-                    <div className="u-meta fb-mono" style={{ width: 42 }}>{l.start}</div>
-                    <div className="u-grow">
-                      <div style={{ fontWeight: 600, fontSize: 13.5 }}><Ref type="course" k={l.code} strong>{l.code}</Ref></div>
-                      <div className="u-meta"><Ref type="venue" k={l.room}>{l.room}</Ref></div>
+            {(() => {
+              const evs = window.portalEvents(store, "students").filter((e) => e.day === today);
+              if (todays.length === 0 && evs.length === 0) return <Empty icon="calendar" title="No classes today" />;
+              return (
+                <div className="u-stack" style={{ gap: 8 }}>
+                  {todays.map((l, i) => (
+                    <div key={i} className="u-row" style={{ gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
+                      <div className="u-meta fb-mono" style={{ width: 42 }}>{l.start}</div>
+                      <div className="u-grow">
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}><Ref type="course" k={l.code} strong>{l.code}</Ref></div>
+                        <div className="u-meta"><Ref type="venue" k={l.room}>{l.room}</Ref></div>
+                      </div>
+                      <Icon name="pin" size={14} style={{ color: "var(--fg-subtle)" }} />
                     </div>
-                    <Icon name="pin" size={14} style={{ color: "var(--fg-subtle)" }} />
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                  {evs.map((e) => (
+                    <div key={e.id} className="u-row" style={{ gap: 12, padding: "10px 12px", border: "1.5px dashed var(--accent)", borderRadius: "var(--r-md)", background: "var(--accent-soft)" }}>
+                      <div className="u-meta fb-mono" style={{ width: 42 }}>{e.start}</div>
+                      <div className="u-grow">
+                        <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--accent-soft-fg)" }}>{e.title}</div>
+                        <div className="u-meta">{e.venue} · scheduled by {e.by}</div>
+                      </div>
+                      <Tag variant="accent">{e.type}</Tag>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Card>
+
+          {(() => {
+            const rep = window.classRepOf(store);
+            if (!rep) return null;
+            const isMe = window.iAmClassRep(store);
+            return (
+              <Card className="u-pad" style={isMe ? { borderColor: "var(--accent-border)", background: "var(--accent-soft)" } : undefined}>
+                <div className="u-row" style={{ gap: 12 }}>
+                  <Avatar initials={rep.initials} size={38} />
+                  <div className="u-grow">
+                    <div className="u-row" style={{ gap: 7 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13.5, color: isMe ? "var(--accent-soft-fg)" : undefined }}>{isMe ? "You are the class rep" : "Your class rep"}</span>
+                      <Tag variant="accent">Class Rep</Tag>
+                    </div>
+                    <div className="u-meta" style={{ marginTop: 3 }}>
+                      {isMe ? "Post notices, remind classmates about deadlines and report issues from your class spaces." : rep.name + " · " + rep.matric}
+                    </div>
+                  </div>
+                </div>
+                {isMe && <Btn variant="secondary" size="sm" icon="cap" style={{ marginTop: 12 }} onClick={() => go("classes")}>Open your classes</Btn>}
+              </Card>
+            );
+          })()}
 
           {regStatus === "approved" && (
             <Card className="u-pad">
@@ -170,7 +207,7 @@ function Dashboard({ store, go }) {
               {pending.length === 0 ? (
                 <div className="u-row" style={{ gap: 10, padding: "6px 2px" }}>
                   <span className="u-icon" style={{ background: "var(--success-soft)", color: "var(--success)" }}><Icon name="check" size={16} /></span>
-                  <div className="u-meta">You're all caught up — nothing due.</div>
+                  <div className="u-meta">You're all caught up: nothing due.</div>
                 </div>
               ) : (
                 <div className="u-stack" style={{ gap: 8 }}>
@@ -180,7 +217,7 @@ function Dashboard({ store, go }) {
                       <span className="u-icon" style={{ background: "var(--warning-soft)", color: "oklch(from var(--warning) calc(l - 0.18) c h)", width: 30, height: 30 }}><Icon name="doc" size={15} /></span>
                       <div className="u-grow" style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 500, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {a.title.replace(/^Assignment \d+ — |^Lab \d+ — |^Reading response — /, "")}
+                          {a.title.replace(/^Assignment \d+: |^Lab \d+: |^Reading response: /, "")}
                         </div>
                         <div className="u-meta"><span className="fb-mono">{a.code}</span> · {a.points} pts</div>
                       </div>
@@ -235,7 +272,7 @@ function Fees({ store, actions, go }) {
         <Card className="u-pad" style={{ marginBottom: 16, borderColor: "var(--warning)", background: "var(--warning-soft)" }}>
           <div className="u-row" style={{ gap: 10 }}>
             <Icon name="clock" size={16} style={{ color: "oklch(from var(--warning) calc(l - 0.2) c h)" }} />
-            <div style={{ fontSize: 13.5, color: "oklch(from var(--warning) calc(l - 0.28) c h)" }}>The fee payment window is currently closed. Late payment may attract a penalty once it reopens — contact the Bursary if you need to clear outstanding fees.</div>
+            <div style={{ fontSize: 13.5, color: "oklch(from var(--warning) calc(l - 0.28) c h)" }}>The fee payment window is currently closed. Late payment may attract a penalty once it reopens: contact the Bursary if you need to clear outstanding fees.</div>
           </div>
         </Card>
       )}
@@ -319,7 +356,7 @@ function Fees({ store, actions, go }) {
             <Btn variant="accent" size="lg" disabled={processing} onClick={pay} style={{ width: "100%" }}>
               {processing ? "Processing…" : "Pay " + fmt(total)}
             </Btn>
-            <div className="u-meta" style={{ textAlign: "center" }}>This is a demo — no real payment is made.</div>
+            <div className="u-meta" style={{ textAlign: "center" }}>This is a demo: no real payment is made.</div>
           </div>
         </Modal>
       )}

@@ -1,4 +1,4 @@
-/* Multi-role staff data — advisers, HOD, dean, exams, bursary, hostel, registry, ICT.
+/* Multi-role staff data: advisers, HOD, dean, exams, bursary, hostel, registry, ICT.
    Reuses window.DATA + window.STAFF_DATA where possible. */
 (function () {
   const fmt = (n) => "\u20a6" + n.toLocaleString("en-NG");
@@ -16,7 +16,7 @@
   // composable pools for generating large, varied rosters
   const FIRST = ["Chinedu", "Aisha", "Tobi", "Ngozi", "Ibrahim", "Fatima", "Daniel", "Blessing", "Yusuf", "Chiamaka", "Samuel", "Hauwa", "Emeka", "Grace", "Abdul", "Zainab", "Peter", "Funke", "Uche", "Maryam", "Olumide", "Halima", "Victor", "Rita", "Bashir", "Esther", "Kelvin", "Amina", "Joshua", "Patience", "Nnamdi", "Khadija", "Segun", "Ifeoma", "Musa", "Bukola", "Chidi", "Rabiu", "Adaeze", "Tunde", "Suleiman", "Oluwaseun", "Comfort", "Gbenga", "Hadiza", "Obinna", "Folake", "Yakubu", "Chioma", "Aliyu"];
   const SURNAME = ["Okonkwo", "Bello", "Adeyemi", "Eze", "Musa", "Sani", "Okoro", "Akpan", "Lawal", "Nwankwo", "Ojo", "Abubakar", "Nnaji", "Effiong", "Yakubu", "Aliyu", "Danladi", "Adebayo", "Okafor", "Garba", "Bankole", "Suleiman", "Agboola", "Onyeka", "Mohammed", "Udo", "Asuquo", "Idris", "Bamidele", "Etim", "Obi", "Ogunleye", "Balogun", "Chukwu", "Ibrahim", "Adamu", "Nwachukwu", "Oladipo", "Usman", "Eke"];
-  // deterministic name from an index — looks varied, stable across reloads
+  // deterministic name from an index: looks varied, stable across reloads
   const genName = (i) => FIRST[(i * 7 + 3) % FIRST.length] + " " + SURNAME[(i * 13 + 5) % SURNAME.length];
 
   // ---- people behind each role ----
@@ -25,13 +25,12 @@
     adviser: { name: "Dr. Chioma Madu", first: "Chioma", initials: "CM", title: "Level Adviser", role: "Senior Lecturer & 300L Adviser · Computer Science", staffId: "FUT/STF/CSC/0288", department: "Computer Science", faculty: "Faculty of Computing", email: "c.madu@futech.edu.ng", phone: "+234 803 221 7788", office: "CS Block, Rm 11", area: "Human–Computer Interaction" },
     hod: { name: "Prof. Kunle Adewale", first: "Kunle", initials: "KA", title: "Head of Department", role: "HOD & Senior Lecturer · Computer Science", staffId: "FUT/STF/CSC/0102", department: "Computer Science", faculty: "Faculty of Computing", email: "k.adewale@futech.edu.ng", phone: "+234 805 990 1122", office: "CS Block, Rm 02", area: "Systems & Networks" },
     dean: { name: "Prof. Adaeze Nwachukwu", first: "Adaeze", initials: "AN", title: "Dean of Faculty", role: "Dean · Faculty of Computing", staffId: "FUT/STF/COM/0007", department: "Dean's Office", faculty: "Faculty of Computing", email: "dean.computing@futech.edu.ng", phone: "+234 802 776 4400", office: "Faculty Block, Rm 1", area: "Artificial Intelligence" },
-    exams: { name: "Mr. Sunday Eke", first: "Sunday", initials: "SE", title: "Exams & Records Officer", role: "Exams & Records", staffId: "FUT/STF/EXM/0451", department: "Exams & Records", faculty: "Registry", email: "s.eke@futech.edu.ng", phone: "+234 806 332 9087", office: "Records Hall, Rm 8", area: "Academic Records" },
+    exams: { name: "Mr. Sunday Eke", first: "Sunday", initials: "SE", title: "Exams Officer", role: "Exams Officer · Computer Science", staffId: "FUT/STF/EXM/0451", department: "Computer Science", faculty: "Faculty of Computing", email: "s.eke@futech.edu.ng", phone: "+234 806 332 9087", office: "CS Block, Rm 8", area: "Academic Records", deptCode: "CSC" },
     bursary: { name: "Mrs. Halima Bello", first: "Halima", initials: "HB", title: "Bursary Officer", role: "Bursary · Student Accounts", staffId: "FUT/STF/BUR/0319", department: "Bursary", faculty: "Finance", email: "h.bello@futech.edu.ng", phone: "+234 803 010 5566", office: "Bursary Block, Rm 4", area: "Student Accounts" },
     hostel: { name: "Mr. Tunde Afolabi", first: "Tunde", initials: "TA", title: "Hostel Officer", role: "Student Affairs · Accommodation", staffId: "FUT/STF/SAF/0277", department: "Student Affairs", faculty: "Student Affairs", email: "t.afolabi@futech.edu.ng", phone: "+234 805 447 2231", office: "Student Affairs, Rm 2", area: "Accommodation" },
     registry: { name: "Mrs. Patricia Okon", first: "Patricia", initials: "PO", title: "Asst. Registrar", role: "Registry · Admissions", staffId: "FUT/STF/REG/0061", department: "Registry", faculty: "Registry", email: "p.okon@futech.edu.ng", phone: "+234 802 668 1190", office: "Registry, Rm 12", area: "Admissions & Records" },
     ict: { name: "Engr. David Umeh", first: "David", initials: "DU", title: "ICT Administrator", role: "ICT · System Administrator", staffId: "FUT/STF/ICT/0015", department: "ICT Directorate", faculty: "ICT", email: "d.umeh@futech.edu.ng", phone: "+234 806 554 7781", office: "ICT Centre, Rm 1", area: "Systems Administration" },
     admissions: { name: "Mr. Sunday Eheri", first: "Sunday", initials: "SE", title: "Admissions Officer", role: "Registry · Admissions Office", staffId: "FUT/STF/ADM/0048", department: "Admissions", faculty: "Registry", email: "s.eheri@futech.edu.ng", phone: "+234 803 221 9087", office: "Registry Block, Rm 12", area: "Admissions" },
-    dean2: { name: "Prof. Musa Danjuma", first: "Musa", initials: "MD", title: "Dean of Faculty", role: "Dean · Faculty of Engineering", staffId: "FUT/STF/ENG/0004", department: "Dean's Office", faculty: "Faculty of Engineering", email: "m.danjuma@futech.edu.ng", phone: "+234 805 770 1142", office: "Engineering Complex, Dean's Suite", area: "Faculty Administration" },
   };
 
   // ---- Level Adviser: 300L CSC advisees with registration submissions ----
@@ -76,6 +75,24 @@
     });
   }
 
+  // the demo student appears in her adviser's list too, so the class-rep
+  // loop (adviser appoints → student portal unlocks rep tools) is demoable
+  ADVISEES.unshift({
+    id: "adv-me",
+    matric: "FUT/2022/CSC/10428",
+    name: "Adaeze N. Okeke", initials: "AO",
+    units: 24, courses: 9,
+    reg: [
+      { ...ADV_CARRYOVER },
+      ...ADV_COURSE_POOL.slice(0, 6).map((c) => ({ ...c })),
+      { ...ADV_COURSE_POOL[7] }, { ...ADV_COURSE_POOL[8] },
+    ],
+    carryover: true, feesPaid: true,
+    submitted: true, submittedAt: "1h ago",
+    cgpa: "4.04", baseStatus: "pending",
+    flags: ["Has carryover (CSC 299)"],
+  });
+
   // ---- HOD: department course → lecturer assignment ----
   const STAFF_POOL = ["Dr. E. Bassey", "Prof. K. Adewale", "Dr. F. Okonkwo", "Dr. M. Sani", "Mr. T. Balogun", "Mrs. J. Eze", "Dr. P. Nwosu", "Dr. C. Madu", "Dr. A. Ibrahim", "Unassigned"];
   const HOD_COURSES = [
@@ -89,10 +106,36 @@
     { code: "CSC 409", title: "Machine Learning", level: "400L", units: 3, lecturer: "Unassigned" },
   ];
 
+  // ---- HOD: SIWES/IT academic supervisor assignment: one supervisor per
+  // 400L student on industrial training, same shape as project supervision ----
+  const SIWES_COMPANIES = ["Zenith Bank IT", "MTN Nigeria", "Interswitch", "Andela", "NITDA", "Flutterwave", "NNPC IT Dept.", "Konga Technologies", "Paystack", "Sterling Bank IT"];
+  const SIWES_SUPERVISORS = ["Dr. E. Bassey", "Prof. K. Adewale", "Dr. F. Okonkwo", "Dr. M. Sani", "Mr. T. Balogun", "Mrs. J. Eze", "Dr. P. Nwosu", "Dr. C. Madu", "Dr. A. Ibrahim"];
+  const SIWES_STUDENTS = [];
+  for (let i = 0; i < 28; i++) {
+    const name = genName(i + 400);
+    SIWES_STUDENTS.push({
+      id: "it" + i,
+      name, initials: init(name),
+      matric: "FUT/2021/CSC/" + (10500 + i * 5),
+      company: SIWES_COMPANIES[i % SIWES_COMPANIES.length],
+      baseSupervisor: i % 5 === 4 ? "Unassigned" : SIWES_SUPERVISORS[i % SIWES_SUPERVISORS.length],
+    });
+  }
+
   // ---- HOD result-approval queue (results submitted by lecturers) ----
+  // every 300L sheet is here so the level broadsheet can gate on "all approved";
+  // CSC 305 + CSC 301 stay pending so the demo can complete the level live.
   const HOD_RESULTS = [
     { code: "CSC 305", title: "Database Management Systems", level: "300L", lecturer: "Dr. F. Okonkwo", students: 14, passRate: 86, submittedAt: "Dec 16", baseStatus: "pending" },
     { code: "CSC 301", title: "Data Structures & Algorithms", level: "300L", lecturer: "Dr. E. Bassey", students: 38, passRate: 79, submittedAt: "Dec 15", baseStatus: "pending" },
+    { code: "CSC 303", title: "Operating Systems", level: "300L", lecturer: "Prof. K. Adewale", students: 41, passRate: 82, submittedAt: "Dec 14", baseStatus: "approved" },
+    { code: "CSC 307", title: "Computer Architecture", level: "300L", lecturer: "Dr. M. Sani", students: 39, passRate: 77, submittedAt: "Dec 14", baseStatus: "approved" },
+    { code: "CSC 309", title: "Object-Oriented Programming II", level: "300L", lecturer: "Mr. T. Balogun", students: 40, passRate: 84, submittedAt: "Dec 13", baseStatus: "approved" },
+    { code: "CSC 311", title: "Web Application Development", level: "300L", lecturer: "Mrs. J. Eze", students: 26, passRate: 88, submittedAt: "Dec 13", baseStatus: "approved" },
+    { code: "CSC 313", title: "Human–Computer Interaction", level: "300L", lecturer: "Dr. C. Madu", students: 22, passRate: 90, submittedAt: "Dec 12", baseStatus: "approved" },
+    { code: "MTH 301", title: "Linear Algebra II", level: "300L", lecturer: "Dr. P. Nwosu", students: 44, passRate: 71, submittedAt: "Dec 12", baseStatus: "approved" },
+    { code: "GST 301", title: "Entrepreneurship Studies", level: "300L", lecturer: "Dr. R. Lawal", students: 46, passRate: 93, submittedAt: "Dec 11", baseStatus: "approved" },
+    { code: "CSC 299", title: "Discrete Mathematics (Carryover)", level: "300L", lecturer: "Dr. A. Ibrahim", students: 12, passRate: 67, submittedAt: "Dec 11", baseStatus: "approved" },
     { code: "CSC 411", title: "Big Data Analytics", level: "400L", lecturer: "Dr. F. Okonkwo", students: 11, passRate: 91, submittedAt: "Dec 14", baseStatus: "pending" },
     { code: "CSC 205", title: "Data Communications", level: "200L", lecturer: "Dr. F. Okonkwo", students: 16, passRate: 75, submittedAt: "Dec 12", baseStatus: "approved" },
   ];
@@ -212,6 +255,20 @@
     { name: "2024/2025", state: "Archived", reg: "Closed", fees: "Closed" },
     { name: "2023/2024", state: "Archived", reg: "Closed", fees: "Closed" },
   ];
+  // ---- ICT: platform health (super-admin view) ----
+  const ICT_METRICS = {
+    uptime: "99.98%", activeNow: 342, failedLogins24h: 12, storagePct: 68,
+    apiLatency: "84 ms", dbConnections: "41 / 200", lastBackup: "Today · 02:00", backupSize: "4.2 GB",
+  };
+  const ICT_SERVICES = [
+    { name: "Portal & API", detail: "app.futech.edu.ng", status: "operational" },
+    { name: "Database cluster", detail: "PostgreSQL · primary + replica", status: "operational" },
+    { name: "Payments gateway", detail: "Paystack / Remita", status: "operational" },
+    { name: "Email & SMS delivery", detail: "Notifications, reminders", status: "degraded", note: "SMS queue delayed ~6 min" },
+    { name: "E-learning storage", detail: "Materials & submissions CDN", status: "operational" },
+    { name: "Nightly backups", detail: "02:00 WAT · offsite", status: "operational" },
+  ];
+
   const AUDIT = [
     { who: "Dr. F. Okonkwo", action: "Submitted CSC 305 results", time: "2h ago" },
     { who: "Prof. K. Adewale", action: "Approved CSC 411 results", time: "5h ago" },
@@ -237,9 +294,9 @@
 
   window.ROLE_DATA = {
     fmt, init, genName, PEOPLE, notif,
-    ADVISEES, STAFF_POOL, HOD_COURSES, HOD_RESULTS,
+    ADVISEES, STAFF_POOL, HOD_COURSES, HOD_RESULTS, SIWES_STUDENTS,
     DEAN_DEPTS, DEAN_RESULTS, EXAM_PUBLISH, TRANSCRIPTS,
     PAYMENTS, DEBTORS, FEE_STRUCTURE, HOSTEL_APPS, HOSTEL_STATS,
-    APPLICANTS, USERS, SESSIONS, AUDIT,
+    APPLICANTS, USERS, SESSIONS, AUDIT, ICT_METRICS, ICT_SERVICES,
   };
 })();

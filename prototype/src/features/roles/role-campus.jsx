@@ -1,6 +1,6 @@
 import React from "react";
 const { AddToCollectionModal, Avatar, Btn, Card, Empty, Field, Icon, PageHead, RoleHero, SPill, Seg, StatCards, Tag, rstate } = window;
-/* Staff roles — Librarian & Medical Officer (clinic) */
+/* Staff roles: Librarian & Medical Officer (clinic) */
 
 /* ============ LIBRARIAN ============ */
 function LibrarianDashboard({ store, actions, go }) {
@@ -35,7 +35,8 @@ function LibrarianDashboard({ store, actions, go }) {
 function LibLoanRows({ store, actions, limit, onlyOverdue }) {
   const C = window.CAMPUS_DATA;
   const lst = (l) => rstate(store, "library", "loan", l.id, l.baseStatus);
-  let rows = C.LIB_LOANS.filter((l) => lst(l) === "on-loan");
+  const issued = Object.values((store.roles && store.roles.library && store.roles.library.issued) || {});
+  let rows = [...issued, ...C.LIB_LOANS].filter((l) => lst(l) === "on-loan");
   if (onlyOverdue) rows = rows.filter((l) => l.overdue);
   if (limit) rows = rows.slice(0, limit);
   if (!rows.length) return <Empty icon="check" title="Nothing here" sub="All clear at the circulation desk." />;
@@ -65,15 +66,26 @@ function LibLoanRows({ store, actions, limit, onlyOverdue }) {
 
 function LibrarianDesk({ store, actions }) {
   const C = window.CAMPUS_DATA;
+  const [matric, setMatric] = React.useState("FUT/2022/CSC/10428");
+  const [book, setBook] = React.useState("");
+  const issue = () => {
+    const id = "UL" + Date.now();
+    const student = matric.trim() === "FUT/2022/CSC/10428" ? "Adaeze N. Okeke" : "Library member";
+    actions.roleAct("library", "issued", id, {
+      id, book: book.trim(), student, matric: matric.trim(),
+      initials: C.init(student), due: "in 14 days", overdue: false, baseStatus: "on-loan",
+    });
+    setBook("");
+  };
   return (
     <div className="u-content">
       <PageHead title="Circulation Desk" sub="Check books in and out" />
       <Card className="u-pad" style={{ marginBottom: 16 }}>
         <div className="u-h3" style={{ marginBottom: 12 }}>Issue a book</div>
         <div className="u-row u-wrap" style={{ gap: 10, alignItems: "flex-end" }}>
-          <Field label="Member matric no."><input className="fb-input fb-input--mono" placeholder="FUT/2022/CSC/00000" defaultValue="FUT/2022/CSC/10428" /></Field>
-          <Field label="Book / call number"><input className="fb-input" placeholder="Title or call number" /></Field>
-          <Btn variant="accent" icon="check" onClick={() => alert("Book issued — 14-day loan created (demo).")}>Issue (14 days)</Btn>
+          <Field label="Member matric no."><input className="fb-input fb-input--mono" placeholder="FUT/2022/CSC/00000" value={matric} onChange={(e) => setMatric(e.target.value)} /></Field>
+          <Field label="Book / call number"><input className="fb-input" placeholder="Title or call number" value={book} onChange={(e) => setBook(e.target.value)} /></Field>
+          <Btn variant="accent" icon="check" disabled={!book.trim() || !matric.trim()} onClick={issue}>Issue (14 days)</Btn>
         </div>
       </Card>
       <div className="u-h3" style={{ marginBottom: 10 }}>Currently on loan</div>
@@ -135,7 +147,7 @@ function LibrarianCatalogue({ store, go }) {
         <input className="fb-input" style={{ paddingLeft: 36 }} placeholder="Search catalogue…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Call no.</th><th className="u-right">Available</th></tr></thead>
             <tbody>
@@ -236,60 +248,133 @@ function ClinicQueue({ store, actions }) {
 
 function ClinicPatients() {
   const C = window.CAMPUS_DATA;
+  const [openRec, setOpenRec] = React.useState(null);
   const seen = Array.from(new Set(C.CLINIC_QUEUE.map((c) => c.student))).slice(0, 10).map((name, i) => ({
     name, initials: C.init(name), matric: "FUT/2022/CSC/" + (10700 + i * 5), visits: 1 + (i % 5), last: ["Today", "2 days ago", "1 week ago", "Oct 2", "Sep 18"][i % 5],
+    bloodGroup: ["O+", "A+", "B+", "AB+", "O-"][i % 5],
+    genotype: ["AA", "AS", "AA", "AA", "AS"][i % 5],
+    allergies: i % 3 === 0 ? "Penicillin" : "None recorded",
+    lastComplaint: ["Malaria symptoms", "Sports injury: ankle", "Migraine", "Typhoid follow-up", "General check-up"][i % 5],
   }));
   return (
     <div className="u-content">
       <PageHead title="Patient Records" sub="Students registered with the health centre" />
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead><tr><th>Patient</th><th>Matric</th><th className="u-right">Visits</th><th>Last seen</th><th className="u-right">Record</th></tr></thead>
             <tbody>
               {seen.map((p) => (
-                <tr key={p.matric}>
+                <tr key={p.matric} style={{ cursor: "pointer" }} onClick={() => setOpenRec(p)}>
                   <td><div className="u-row" style={{ gap: 10 }}><Avatar initials={p.initials} size={30} /><span style={{ fontWeight: 500 }}>{p.name}</span></div></td>
                   <td className="fb-mono" style={{ fontSize: 12 }}>{p.matric}</td>
                   <td className="u-right u-num">{p.visits}</td>
                   <td className="u-meta">{p.last}</td>
-                  <td className="u-right"><Btn variant="ghost" size="sm">Open</Btn></td>
+                  <td className="u-right"><Btn variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenRec(p); }}>Open</Btn></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Card>
+      {openRec && <PatientRecordModal p={openRec} onClose={() => setOpenRec(null)} />}
     </div>
   );
 }
 
-function ClinicPharmacy() {
+/* read-only medical record card for a patient */
+function PatientRecordModal({ p, onClose }) {
+  const Row = ({ k, v }) => (
+    <div className="u-slip__row" style={{ borderTop: "1px solid var(--border)" }}>
+      <span className="k">{k}</span><span className="v">{v}</span>
+    </div>
+  );
+  return (
+    <Modal onClose={onClose}>
+      <ModalHead title="Patient record" sub={p.matric} onClose={onClose} />
+      <div className="u-pad">
+        <div className="u-row" style={{ gap: 12, marginBottom: 14 }}>
+          <Avatar initials={p.initials} size={44} />
+          <div className="u-grow">
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{p.name}</div>
+            <div className="u-meta">Registered patient · {p.visits} visit{p.visits === 1 ? "" : "s"} this session</div>
+          </div>
+          <Tag variant="success" dot>Active</Tag>
+        </div>
+        <Row k="Blood group" v={p.bloodGroup} />
+        <Row k="Genotype" v={p.genotype} />
+        <Row k="Allergies" v={p.allergies === "None recorded" ? p.allergies : <Tag variant="danger">{p.allergies}</Tag>} />
+        <Row k="Last visit" v={p.last} />
+        <Row k="Last complaint" v={p.lastComplaint} />
+        <Row k="Emergency contact" v="On file · Registry" />
+        <div className="u-meta" style={{ marginTop: 12 }}><Icon name="lock" size={12} /> Full clinical notes are restricted to attending medical staff.</div>
+      </div>
+    </Modal>
+  );
+}
+
+function ClinicPharmacy({ store, actions }) {
   const C = window.CAMPUS_DATA;
   const tone = { ok: "success", low: "warning", out: "danger" };
   const label = { ok: "In stock", low: "Low", out: "Out of stock" };
+  const [restocking, setRestocking] = React.useState(false);
+  // restocked units live in the store so they survive navigation
+  const added = (name) => rstate(store, "clinic", "restock", name, 0);
   return (
     <div className="u-content">
       <PageHead title="Pharmacy Inventory" sub="Drug stock levels at the medical centre">
-        <Btn variant="accent" icon="plus">Record restock</Btn>
+        <Btn variant="accent" icon="plus" onClick={() => setRestocking(true)}>Record restock</Btn>
       </PageHead>
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead><tr><th>Drug / item</th><th className="u-right">In stock</th><th>Status</th></tr></thead>
             <tbody>
-              {C.DRUGS.map((d) => (
-                <tr key={d.name}>
-                  <td style={{ fontWeight: 500 }}>{d.name}</td>
-                  <td className="u-right u-num">{d.stock} {d.unit}</td>
-                  <td><Tag variant={tone[d.level]} dot>{label[d.level]}</Tag></td>
-                </tr>
-              ))}
+              {C.DRUGS.map((d) => {
+                const extra = added(d.name);
+                const stock = d.stock + extra;
+                const level = extra > 0 ? "ok" : d.level;
+                return (
+                  <tr key={d.name}>
+                    <td style={{ fontWeight: 500 }}>{d.name} {extra > 0 && <Tag variant="success">+{extra} restocked</Tag>}</td>
+                    <td className="u-right u-num">{stock} {d.unit}</td>
+                    <td><Tag variant={tone[level]} dot>{label[level]}</Tag></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
+      {restocking && <RestockModal store={store} actions={actions} onClose={() => setRestocking(false)} />}
     </div>
+  );
+}
+
+function RestockModal({ store, actions, onClose }) {
+  const C = window.CAMPUS_DATA;
+  const [drug, setDrug] = React.useState(C.DRUGS.find((d) => d.level !== "ok")?.name || C.DRUGS[0].name);
+  const [qty, setQty] = React.useState(100);
+  const save = () => {
+    const prev = rstate(store, "clinic", "restock", drug, 0);
+    actions.roleAct("clinic", "restock", drug, prev + Number(qty || 0));
+    onClose();
+  };
+  return (
+    <Modal onClose={onClose}>
+      <ModalHead title="Record restock" sub="Add received supply to inventory" onClose={onClose} />
+      <div className="u-pad u-stack" style={{ gap: 14 }}>
+        <Field label="Drug / item">
+          <select className="fb-input" value={drug} onChange={(e) => setDrug(e.target.value)}>
+            {C.DRUGS.map((d) => <option key={d.name}>{d.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Quantity received">
+          <input className="fb-input" type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
+        </Field>
+        <Btn variant="accent" size="lg" disabled={!qty || Number(qty) <= 0} onClick={save} style={{ width: "100%" }}>Add to inventory</Btn>
+      </div>
+    </Modal>
   );
 }
 
