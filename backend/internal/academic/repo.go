@@ -88,13 +88,15 @@ func (r *Repo) Programs(ctx context.Context, limit, offset int) ([]portal.Progra
 		})
 }
 
-func (r *Repo) Students(ctx context.Context, limit, offset int, studentID string) ([]portal.StudentProfile, int, error) {
+func (r *Repo) Students(ctx context.Context, limit, offset int, studentID, departmentID, level string) ([]portal.StudentProfile, int, error) {
 	scope := db.UUIDOrNil(studentID)
+	deptScope := db.UUIDOrNil(departmentID)
+	lvl := nullIfEmpty(level)
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM students WHERE ($1::uuid IS NULL OR id=$1::uuid)`, scope).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM students WHERE ($1::uuid IS NULL OR id=$1::uuid) AND ($2::uuid IS NULL OR department_id=$2::uuid) AND ($3::text IS NULL OR level=$3::text)`, scope, deptScope, lvl).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT s.id::text, s.user_id::text, s.matric_no, s.first_name, s.last_name, COALESCE(u.email,''), COALESCE(s.phone,''), s.level, s.program_id::text, s.department_id::text, s.status FROM students s JOIN users u ON u.id=s.user_id WHERE ($3::uuid IS NULL OR s.id=$3::uuid) ORDER BY s.last_name, s.first_name LIMIT $1 OFFSET $2`, limit, offset, scope)
+	rows, err := r.pool.Query(ctx, `SELECT s.id::text, s.user_id::text, s.matric_no, s.first_name, s.last_name, COALESCE(u.email,''), COALESCE(s.phone,''), s.level, s.program_id::text, s.department_id::text, s.status FROM students s JOIN users u ON u.id=s.user_id WHERE ($3::uuid IS NULL OR s.id=$3::uuid) AND ($4::uuid IS NULL OR s.department_id=$4::uuid) AND ($5::text IS NULL OR s.level=$5::text) ORDER BY s.last_name, s.first_name LIMIT $1 OFFSET $2`, limit, offset, scope, deptScope, lvl)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -116,31 +118,67 @@ func (r *Repo) StudentIDByUserID(ctx context.Context, userID string) (string, er
 	return id, err
 }
 
-func (r *Repo) Staff(ctx context.Context, limit, offset int) ([]portal.StaffProfile, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM staff_profiles`,
-		`SELECT sp.id::text, sp.user_id::text, sp.staff_no, sp.display_name, COALESCE(u.email,''), sp.role,
-		        COALESCE(sp.department_id::text,''), COALESCE(sp.office,''), sp.status
-		 FROM staff_profiles sp JOIN users u ON u.id = sp.user_id
-		 ORDER BY sp.display_name LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.StaffProfile, error) {
-			var s portal.StaffProfile
-			err := rows.Scan(&s.ID, &s.UserID, &s.StaffNo, &s.DisplayName, &s.Email, &s.Role,
-				&s.DepartmentID, &s.Office, &s.Status)
-			return s, err
-		})
+// nullIfEmpty turns "" into a nil *string so it binds as SQL NULL, letting
+// "$n::text IS NULL OR col = $n" act as an optional filter.
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
-func (r *Repo) Courses(ctx context.Context, limit, offset int) ([]portal.Course, int, error) {
-	return list(ctx, r,
-		`SELECT count(*) FROM courses`,
-		`SELECT id::text, code, title, units, level, semester, department_id::text, COALESCE(lecturer_id::text,'')
-		 FROM courses ORDER BY code LIMIT $1 OFFSET $2`,
-		limit, offset, func(rows pgx.Rows) (portal.Course, error) {
-			var c portal.Course
-			err := rows.Scan(&c.ID, &c.Code, &c.Title, &c.Units, &c.Level, &c.Semester, &c.DepartmentID, &c.LecturerID)
-			return c, err
-		})
+func (r *Repo) Staff(ctx context.Context, limit, offset int, departmentID string) ([]portal.StaffProfile, int, error) {
+	deptScope := db.UUIDOrNil(departmentID)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM staff_profiles WHERE ($1::uuid IS NULL OR department_id=$1::uuid)`, deptScope).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT sp.id::text, sp.user_id::text, sp.staff_no, sp.display_name, COALESCE(u.email,''), sp.role,
+	        COALESCE(sp.department_id::text,''), COALESCE(sp.office,''), sp.status
+	 FROM staff_profiles sp JOIN users u ON u.id = sp.user_id
+	 WHERE ($3::uuid IS NULL OR sp.department_id=$3::uuid)
+	 ORDER BY sp.display_name LIMIT $1 OFFSET $2`, limit, offset, deptScope)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.StaffProfile{}
+	for rows.Next() {
+		var s portal.StaffProfile
+		if err := rows.Scan(&s.ID, &s.UserID, &s.StaffNo, &s.DisplayName, &s.Email, &s.Role,
+			&s.DepartmentID, &s.Office, &s.Status); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, s)
+	}
+	return out, total, rows.Err()
+}
+
+func (r *Repo) Courses(ctx context.Context, limit, offset int, departmentID, level, semester string) ([]portal.Course, int, error) {
+	deptScope := db.UUIDOrNil(departmentID)
+	lvl := nullIfEmpty(level)
+	sem := nullIfEmpty(semester)
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM courses WHERE ($1::uuid IS NULL OR department_id=$1::uuid) AND ($2::text IS NULL OR level=$2::text) AND ($3::text IS NULL OR semester=$3::text)`, deptScope, lvl, sem).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, code, title, COALESCE(description,''), units, level, semester, department_id::text, COALESCE(lecturer_id::text,'')
+	 FROM courses
+	 WHERE ($3::uuid IS NULL OR department_id=$3::uuid) AND ($4::text IS NULL OR level=$4::text) AND ($5::text IS NULL OR semester=$5::text)
+	 ORDER BY code LIMIT $1 OFFSET $2`, limit, offset, deptScope, lvl, sem)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []portal.Course{}
+	for rows.Next() {
+		var c portal.Course
+		if err := rows.Scan(&c.ID, &c.Code, &c.Title, &c.Description, &c.Units, &c.Level, &c.Semester, &c.DepartmentID, &c.LecturerID); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, c)
+	}
+	return out, total, rows.Err()
 }
 
 // gradePoint mirrors the frontend's GP_MAP (A=5..F=0) on a 5.00 scale.

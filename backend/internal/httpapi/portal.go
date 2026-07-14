@@ -82,7 +82,16 @@ func (a *API) courses(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireUser(w, r); !ok {
 		return
 	}
-	serveList(a, w, r, "courses", a.academic.Courses)
+	page := parsePage(r)
+	q := r.URL.Query()
+	items, total, err := a.academic.Courses(r.Context(), page.Limit, page.Offset, q.Get("departmentId"), q.Get("level"), q.Get("semester"))
+	if err != nil {
+		a.logger.Error("list courses", "error", err)
+		respond.Err(w, err)
+		return
+	}
+	page.Total = total
+	respond.List(w, items, page)
 }
 func (a *API) hostelHalls(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireUser(w, r); !ok {
@@ -122,7 +131,16 @@ func (a *API) students(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	scopedList(a, w, r, "students", scope, a.academic.Students)
+	page := parsePage(r)
+	q := r.URL.Query()
+	items, total, err := a.academic.Students(r.Context(), page.Limit, page.Offset, scope, q.Get("departmentId"), q.Get("level"))
+	if err != nil {
+		a.logger.Error("list students", "error", err)
+		respond.Err(w, err)
+		return
+	}
+	page.Total = total
+	respond.List(w, items, page)
 }
 
 // studentAcademicRecord serves GET /api/v1/students/{id}/academic-record.
@@ -175,7 +193,15 @@ func (a *API) staff(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusForbidden, "forbidden for role")
 		return
 	}
-	serveList(a, w, r, "staff", a.academic.Staff)
+	page := parsePage(r)
+	items, total, err := a.academic.Staff(r.Context(), page.Limit, page.Offset, r.URL.Query().Get("departmentId"))
+	if err != nil {
+		a.logger.Error("list staff", "error", err)
+		respond.Err(w, err)
+		return
+	}
+	page.Total = total
+	respond.List(w, items, page)
 }
 func (a *API) invoices(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireUser(w, r)
