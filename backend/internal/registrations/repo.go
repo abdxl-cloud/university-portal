@@ -31,7 +31,7 @@ func (r *Repo) List(ctx context.Context, limit, offset int, studentID string) ([
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id::text, student_id::text, session_id::text, status, units, submitted_at
+		SELECT id::text, student_id::text, session_id::text, status, units, submitted_at, COALESCE(decision_note, '')
 		FROM course_registrations WHERE ($3::uuid IS NULL OR student_id=$3::uuid) ORDER BY submitted_at DESC NULLS LAST LIMIT $1 OFFSET $2`, limit, offset, db.UUIDOrNil(studentID))
 	if err != nil {
 		return nil, 0, err
@@ -42,7 +42,7 @@ func (r *Repo) List(ctx context.Context, limit, offset int, studentID string) ([
 	for rows.Next() {
 		var reg portal.CourseRegistration
 		var submitted *time.Time
-		if err := rows.Scan(&reg.ID, &reg.StudentID, &reg.SessionID, &reg.Status, &reg.Units, &submitted); err != nil {
+		if err := rows.Scan(&reg.ID, &reg.StudentID, &reg.SessionID, &reg.Status, &reg.Units, &submitted, &reg.Note); err != nil {
 			return nil, 0, err
 		}
 		if submitted != nil {
@@ -142,6 +142,50 @@ func (r *Repo) Submit(ctx context.Context, studentID, sessionID string, courseID
 		}
 
 		r.audit(ctx, tx, actorUserID, "submitted", "course-registration", reg.ID, map[string]any{"units": units})
+		return reg, nil
+	})
+}
+
+// Decide approves or queries a pending registration (mirrors the frontend's
+// approveRegistration/queryRegistration). Also syncs the generic approvals
+// row Submit created, so the cross-domain approvals queue doesn't show a
+// permanently-stuck-pending entry after the real decision is made.
+func (r *Repo) Decide(ctx context.Context, id, status, note, actorUserID string) (portal.CourseRegistration, error) {
+	if status != "approved" && status != "query" {
+		return portal.CourseRegistration{}, apperr.Invalid(`status must be "approved" or "query"`)
+	}
+	return db.InTx(ctx, r.pool, func(tx pgx.Tx) (portal.CourseRegistration, error) {
+		var reg portal.CourseRegistration
+		var submitted *time.Time
+		err := tx.QueryRow(ctx, `
+			UPDATE course_registrations SET status=$2, decision_note=$3
+			WHERE id=$1::uuid AND status='pending'
+			RETURNING id::text, student_id::text, session_id::text, status, units, submitted_at, COALESCE(decision_note,'')`,
+			id, status, note).
+			Scan(&reg.ID, &reg.StudentID, &reg.SessionID, &reg.Status, &reg.Units, &submitted, &reg.Note)
+		if db.IsNotFound(err) {
+			return portal.CourseRegistration{}, apperr.NotFound("pending registration not found")
+		}
+		if err != nil {
+			return portal.CourseRegistration{}, db.Translate(err)
+		}
+		if submitted != nil {
+			reg.Submitted = *submitted
+		}
+		lines, err := r.linesByRegistration(ctx, []string{reg.ID})
+		if err != nil {
+			return portal.CourseRegistration{}, err
+		}
+		reg.Lines = lines[reg.ID]
+		if reg.Lines == nil {
+			reg.Lines = []portal.RegistrationLine{}
+		}
+
+		if _, err := tx.Exec(ctx, `
+			UPDATE approvals SET status=$2 WHERE domain='course-registration' AND entity_id=$1`, reg.ID, status); err != nil {
+			return portal.CourseRegistration{}, db.Translate(err)
+		}
+		r.audit(ctx, tx, actorUserID, status, "course-registration", reg.ID, map[string]any{"note": note})
 		return reg, nil
 	})
 }

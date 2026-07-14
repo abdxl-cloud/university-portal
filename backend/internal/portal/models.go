@@ -106,6 +106,7 @@ type CourseRegistration struct {
 	Units     int                `json:"units"`
 	Lines     []RegistrationLine `json:"lines"`
 	Submitted time.Time          `json:"submittedAt"`
+	Note      string             `json:"note,omitempty"`
 }
 
 type RegistrationLine struct {

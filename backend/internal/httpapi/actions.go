@@ -146,6 +146,36 @@ func (a *API) submitCourseRegistration(w http.ResponseWriter, r *http.Request) {
 	writeMutation(w, err, map[string]any{"registration": reg})
 }
 
+type registrationDecisionRequest struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+	Note   string `json:"note"`
+}
+
+func (r registrationDecisionRequest) Validate() error {
+	if r.ID == "" {
+		return apperr.Invalid("id is required")
+	}
+	return nil
+}
+
+func (a *API) decideCourseRegistration(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireRole(w, r, "adviser", "hod", "ict")
+	if !ok {
+		return
+	}
+	var req registrationDecisionRequest
+	if !bind(w, r, &req) {
+		return
+	}
+	if req.Status != "approved" && req.Status != "query" {
+		writeMutation(w, apperr.Invalid(`status must be "approved" or "query"`), nil)
+		return
+	}
+	reg, err := a.regs.Decide(r.Context(), req.ID, req.Status, req.Note, user.ID)
+	writeMutation(w, err, map[string]any{"registration": reg})
+}
+
 func (a *API) decideApproval(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "adviser", "hod", "dean", "exams", "bursary", "hostel", "registry", "ict")
 	if !ok {

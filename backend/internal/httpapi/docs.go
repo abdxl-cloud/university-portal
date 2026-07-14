@@ -9,7 +9,7 @@ func (a *API) docs(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`<!doctype html>
 <html lang="en">
   <head>
-    <title>FormBuilder API Reference</title>
+    <title>UniPortal API Reference</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
@@ -34,19 +34,19 @@ func (a *API) openapi(w http.ResponseWriter, r *http.Request) {
 const openAPISpec = `{
   "openapi": "3.1.0",
   "info": {
-    "title": "FormBuilder Student Portal API",
+    "title": "UniPortal API",
     "summary": "Backend API for the FUTECH student portal prototype.",
     "version": "0.1.0"
   },
   "servers": [
     {
-      "url": "http://localhost:8080",
-      "description": "Local development"
+      "url": "/",
+      "description": "Current API host"
     }
   ],
   "tags": [
     { "name": "System", "description": "Health and metadata endpoints" },
-    { "name": "Auth", "description": "Demo in-memory authentication endpoints" },
+    { "name": "Auth", "description": "Database-backed authentication with seeded development accounts" },
     { "name": "Modules", "description": "Deployment-level feature flags" },
     { "name": "Portal", "description": "Cross-module portal resources" },
     { "name": "Academic", "description": "Sessions, faculties, departments, programs, courses, registrations, and results" },
@@ -135,7 +135,8 @@ const openAPISpec = `{
     "/api/v1/auth/login": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Login with demo credentials",
+        "summary": "Login with a seeded development account",
+        "description": "Choose a role example below. All seeded development accounts use the password demo1234.",
         "operationId": "authLogin",
         "requestBody": {
           "required": true,
@@ -144,14 +145,86 @@ const openAPISpec = `{
               "schema": { "$ref": "#/components/schemas/LoginRequest" },
               "examples": {
                 "student": {
+                  "summary": "Student",
                   "value": {
                     "identifier": "FUT/2022/CSC/10428",
                     "password": "demo1234"
                   }
                 },
+                "lecturer": {
+                  "summary": "Lecturer",
+                  "value": {
+                    "identifier": "FUT/STF/CSC/0391",
+                    "password": "demo1234"
+                  }
+                },
+                "adviser": {
+                  "summary": "Academic adviser",
+                  "value": {
+                    "identifier": "FUT/STF/CSC/0288",
+                    "password": "demo1234"
+                  }
+                },
+                "hod": {
+                  "summary": "Head of department",
+                  "value": {
+                    "identifier": "FUT/STF/CSC/0102",
+                    "password": "demo1234"
+                  }
+                },
+                "dean": {
+                  "summary": "Dean",
+                  "value": {
+                    "identifier": "FUT/STF/COM/0007",
+                    "password": "demo1234"
+                  }
+                },
+                "exams": {
+                  "summary": "Exams officer",
+                  "value": {
+                    "identifier": "FUT/STF/EXM/0451",
+                    "password": "demo1234"
+                  }
+                },
+                "bursary": {
+                  "summary": "Bursary",
+                  "value": {
+                    "identifier": "FUT/STF/BUR/0319",
+                    "password": "demo1234"
+                  }
+                },
                 "librarian": {
+                  "summary": "Librarian",
                   "value": {
                     "identifier": "FUT/STF/LIB/0044",
+                    "password": "demo1234"
+                  }
+                },
+                "clinic": {
+                  "summary": "Clinic",
+                  "value": {
+                    "identifier": "FUT/STF/MED/0009",
+                    "password": "demo1234"
+                  }
+                },
+                "hostel": {
+                  "summary": "Hostel officer",
+                  "value": {
+                    "identifier": "FUT/STF/SAF/0277",
+                    "password": "demo1234"
+                  }
+                },
+                "registry": {
+                  "summary": "Registry",
+                  "value": {
+                    "identifier": "FUT/STF/REG/0061",
+                    "password": "demo1234"
+                  }
+                },
+                "ict": {
+                  "summary": "ICT administrator",
+                  "value": {
+                    "identifier": "FUT/STF/ICT/0015",
                     "password": "demo1234"
                   }
                 }
@@ -239,6 +312,7 @@ const openAPISpec = `{
     "/api/v1/fees/payments": { "get": { "tags": ["Finance"], "summary": "List payments", "operationId": "listPayments", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } } },
     "/api/v1/courses": { "get": { "tags": ["Academic"], "summary": "List courses", "operationId": "listCourses", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } } },
     "/api/v1/course-registrations": { "get": { "tags": ["Academic"], "summary": "List course registrations", "operationId": "listCourseRegistrations", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } }, "post": { "tags": ["Academic"], "summary": "Submit a course registration", "operationId": "submitCourseRegistration", "security": [{ "bearerAuth": [] }], "requestBody": { "$ref": "#/components/requestBodies/MutationBody" }, "responses": { "200": { "$ref": "#/components/responses/MutationResult" } } } },
+    "/api/v1/course-registrations/decision": { "patch": { "tags": ["Academic"], "summary": "Approve or query a pending course registration (adviser/HOD)", "operationId": "decideCourseRegistration", "security": [{ "bearerAuth": [] }], "requestBody": { "$ref": "#/components/requestBodies/MutationBody" }, "responses": { "200": { "$ref": "#/components/responses/MutationResult" } } } },
     "/api/v1/results": { "get": { "tags": ["Academic"], "summary": "List results", "operationId": "listResults", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } } },
     "/api/v1/hostels/halls": { "get": { "tags": ["Hostels"], "summary": "List hostel halls", "operationId": "listHostelHalls", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } } },
     "/api/v1/hostels/rooms": { "get": { "tags": ["Hostels"], "summary": "List hostel rooms", "operationId": "listHostelRooms", "responses": { "200": { "$ref": "#/components/responses/ResourceList" } } } },
