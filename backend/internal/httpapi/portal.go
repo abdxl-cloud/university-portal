@@ -124,6 +124,48 @@ func (a *API) students(w http.ResponseWriter, r *http.Request) {
 	}
 	scopedList(a, w, r, "students", scope, a.academic.Students)
 }
+
+// studentAcademicRecord serves GET /api/v1/students/{id}/academic-record.
+// {id} may be "me" (resolved via studentScope for the calling student) or a
+// real student id (staff roles only).
+func (a *API) studentAcademicRecord(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireUser(w, r)
+	if !ok {
+		return
+	}
+	id := r.PathValue("id")
+	if id == "me" {
+		if user.Role != "student" {
+			respond.Error(w, http.StatusForbidden, "forbidden for role")
+			return
+		}
+		scope, ok := a.studentScope(w, r, user)
+		if !ok {
+			return
+		}
+		id = scope
+	} else if user.Role != "student" && !hasRole(user, "adviser", "hod", "dean", "exams", "registry", "ict") {
+		respond.Error(w, http.StatusForbidden, "forbidden for role")
+		return
+	} else if user.Role == "student" {
+		scope, ok := a.studentScope(w, r, user)
+		if !ok {
+			return
+		}
+		if scope != id {
+			respond.Error(w, http.StatusForbidden, "forbidden for role")
+			return
+		}
+	}
+	rec, err := a.academic.AcademicRecord(r.Context(), id)
+	if err != nil {
+		a.logger.Error("academic record", "error", err)
+		respond.Err(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, rec)
+}
+
 func (a *API) staff(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireUser(w, r)
 	if !ok {

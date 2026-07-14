@@ -143,6 +143,87 @@ func (r *Repo) Courses(ctx context.Context, limit, offset int) ([]portal.Course,
 		})
 }
 
+// gradePoint mirrors the frontend's GP_MAP (A=5..F=0) on a 5.00 scale.
+const gradePointCase = `CASE grade WHEN 'A' THEN 5 WHEN 'B' THEN 4 WHEN 'C' THEN 3 WHEN 'D' THEN 2 WHEN 'E' THEN 1 ELSE 0 END`
+
+// AcademicRecord computes a student's transcript: per-semester TNU (total
+// units)/TCP (total credit points)/GPA with a running CGPA, ordered
+// chronologically (session name/semester sort lexically in this schema's
+// naming convention, e.g. "2024/2025" < "2025/2026", "First" < "Second"),
+// plus any course with an 'F' that has no later passing attempt.
+func (r *Repo) AcademicRecord(ctx context.Context, studentID string) (portal.AcademicRecord, error) {
+	rec := portal.AcademicRecord{StudentID: studentID, Semesters: []portal.AcademicRecordSemester{}, Carryovers: []portal.Carryover{}}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT r.session_id::text, s.name, s.semester,
+		       COALESCE(SUM(c.units), 0) AS tnu,
+		       COALESCE(SUM(c.units * (`+gradePointCase+`)), 0) AS tcp
+		FROM results r
+		JOIN courses c ON c.id = r.course_id
+		JOIN academic_sessions s ON s.id = r.session_id
+		WHERE r.student_id = $1::uuid AND r.status = 'released'
+		GROUP BY r.session_id, s.name, s.semester
+		ORDER BY s.name, s.semester`, studentID)
+	if err != nil {
+		return rec, err
+	}
+	defer rows.Close()
+
+	var runTNU, runTCP int
+	for rows.Next() {
+		var sem portal.AcademicRecordSemester
+		if err := rows.Scan(&sem.SessionID, &sem.Session, &sem.Semester, &sem.TNU, &sem.TCP); err != nil {
+			return rec, err
+		}
+		if sem.TNU > 0 {
+			sem.GPA = float64(sem.TCP) / float64(sem.TNU)
+		}
+		runTNU += sem.TNU
+		runTCP += sem.TCP
+		if runTNU > 0 {
+			sem.CGPA = float64(runTCP) / float64(runTNU)
+		}
+		rec.Semesters = append(rec.Semesters, sem)
+	}
+	if err := rows.Err(); err != nil {
+		return rec, err
+	}
+	if runTNU > 0 {
+		rec.CGPA = float64(runTCP) / float64(runTNU)
+	}
+	rec.Standing = "Good Standing"
+	if len(rec.Semesters) > 0 && rec.Semesters[len(rec.Semesters)-1].GPA < 1.5 {
+		rec.Standing = "Probation"
+	}
+
+	// carryovers: any F with no later result for the same course that isn't
+	// itself an F (a resit is a new row in a later session, same course_id)
+	coRows, err := r.pool.Query(ctx, `
+		SELECT r.course_id::text, c.code, c.title, s.name || ' · ' || s.semester, r.total
+		FROM results r
+		JOIN courses c ON c.id = r.course_id
+		JOIN academic_sessions s ON s.id = r.session_id
+		WHERE r.student_id = $1::uuid AND r.grade = 'F'
+		  AND NOT EXISTS (
+		    SELECT 1 FROM results r2
+		    WHERE r2.student_id = r.student_id AND r2.course_id = r.course_id
+		      AND r2.grade <> 'F' AND r2.id <> r.id
+		  )
+		ORDER BY c.code`, studentID)
+	if err != nil {
+		return rec, err
+	}
+	defer coRows.Close()
+	for coRows.Next() {
+		var co portal.Carryover
+		if err := coRows.Scan(&co.CourseID, &co.Code, &co.Title, &co.FailedIn, &co.FailScore); err != nil {
+			return rec, err
+		}
+		rec.Carryovers = append(rec.Carryovers, co)
+	}
+	return rec, coRows.Err()
+}
+
 func (r *Repo) Results(ctx context.Context, limit, offset int, studentID string) ([]portal.Result, int, error) {
 	scope := db.UUIDOrNil(studentID)
 	var total int

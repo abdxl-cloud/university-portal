@@ -259,6 +259,37 @@ type SupportTicket struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// AcademicRecord is the computed transcript view: per-semester TNU/TCP/GPA
+// with a running CGPA, plus any outstanding carryovers. Mirrors what the
+// frontend prototype used to hash-generate client-side (detail.jsx's
+// StudentRecord/generatedRecord) — now a real query over results/courses.
+type AcademicRecordSemester struct {
+	SessionID string  `json:"sessionId"`
+	Session   string  `json:"session"`
+	Semester  string  `json:"semester"`
+	TNU       int     `json:"tnu"`
+	TCP       int     `json:"tcp"`
+	GPA       float64 `json:"gpa"`
+	CGPA      float64 `json:"cgpa"`
+}
+
+type Carryover struct {
+	CourseID  string `json:"courseId"`
+	Code      string `json:"code"`
+	Title     string `json:"title"`
+	FailedIn  string `json:"failedIn"`
+	FailScore int    `json:"failScore"`
+	Cleared   bool   `json:"cleared"`
+}
+
+type AcademicRecord struct {
+	StudentID  string                   `json:"studentId"`
+	Semesters  []AcademicRecordSemester `json:"semesters"`
+	CGPA       float64                  `json:"cgpa"`
+	Standing   string                   `json:"standing"`
+	Carryovers []Carryover              `json:"carryovers"`
+}
+
 type DashboardSnapshot struct {
 	Students         int `json:"students"`
 	Staff            int `json:"staff"`

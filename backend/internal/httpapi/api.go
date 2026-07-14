@@ -95,6 +95,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/academic/departments", a.departments)
 	mux.HandleFunc("GET /api/v1/academic/programs", a.programs)
 	mux.HandleFunc("GET /api/v1/students", a.students)
+	mux.HandleFunc("GET /api/v1/students/{id}/academic-record", a.studentAcademicRecord)
 	mux.HandleFunc("GET /api/v1/staff", a.staff)
 	mux.HandleFunc("GET /api/v1/fees/invoices", a.moduleHandler("finance", a.invoices))
 	mux.HandleFunc("POST /api/v1/fees/invoices/pay", a.moduleHandler("finance", a.payInvoice))
