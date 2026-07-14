@@ -30,6 +30,16 @@ func (a *API) studentScope(w http.ResponseWriter, r *http.Request, user auth.Use
 	return id, true
 }
 
+func (a *API) staffScope(w http.ResponseWriter, r *http.Request, user auth.User) (string, bool) {
+	id, err := a.academic.StaffIDByUserID(r.Context(), user.ID)
+	if err != nil {
+		a.logger.Error("resolve staff identity", "error", err)
+		respond.Error(w, http.StatusForbidden, "staff profile unavailable")
+		return "", false
+	}
+	return id, true
+}
+
 func scopedList[T any](a *API, w http.ResponseWriter, r *http.Request, name string, scope string, fetch func(context.Context, int, int, string) ([]T, int, error)) {
 	page := parsePage(r)
 	items, total, err := fetch(r.Context(), page.Limit, page.Offset, scope)
@@ -84,7 +94,7 @@ func (a *API) courses(w http.ResponseWriter, r *http.Request) {
 	}
 	page := parsePage(r)
 	q := r.URL.Query()
-	items, total, err := a.academic.Courses(r.Context(), page.Limit, page.Offset, q.Get("departmentId"), q.Get("level"), q.Get("semester"))
+	items, total, err := a.academic.Courses(r.Context(), page.Limit, page.Offset, q.Get("departmentId"), q.Get("level"), q.Get("semester"), q.Get("q"))
 	if err != nil {
 		a.logger.Error("list courses", "error", err)
 		respond.Err(w, err)
@@ -92,6 +102,18 @@ func (a *API) courses(w http.ResponseWriter, r *http.Request) {
 	}
 	page.Total = total
 	respond.List(w, items, page)
+}
+
+func (a *API) courseDetail(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.requireUser(w, r); !ok {
+		return
+	}
+	course, err := a.academic.CourseByID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		respond.Err(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, course)
 }
 func (a *API) hostelHalls(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireUser(w, r); !ok {
@@ -133,7 +155,7 @@ func (a *API) students(w http.ResponseWriter, r *http.Request) {
 	}
 	page := parsePage(r)
 	q := r.URL.Query()
-	items, total, err := a.academic.Students(r.Context(), page.Limit, page.Offset, scope, q.Get("departmentId"), q.Get("level"))
+	items, total, err := a.academic.Students(r.Context(), page.Limit, page.Offset, scope, q.Get("departmentId"), q.Get("level"), q.Get("q"))
 	if err != nil {
 		a.logger.Error("list students", "error", err)
 		respond.Err(w, err)
@@ -141,6 +163,46 @@ func (a *API) students(w http.ResponseWriter, r *http.Request) {
 	}
 	page.Total = total
 	respond.List(w, items, page)
+}
+
+// studentDetail serves GET /api/v1/students/{id}. {id} may be "me" (resolved
+// via studentScope for the calling student) or a real student id (staff roles
+// only, mirroring studentAcademicRecord's auth shape).
+func (a *API) studentDetail(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireUser(w, r)
+	if !ok {
+		return
+	}
+	id := r.PathValue("id")
+	if id == "me" {
+		if user.Role != "student" {
+			respond.Error(w, http.StatusForbidden, "forbidden for role")
+			return
+		}
+		scope, ok := a.studentScope(w, r, user)
+		if !ok {
+			return
+		}
+		id = scope
+	} else if user.Role != "student" && !hasRole(user, "adviser", "hod", "dean", "exams", "registry", "ict") {
+		respond.Error(w, http.StatusForbidden, "forbidden for role")
+		return
+	} else if user.Role == "student" {
+		scope, ok := a.studentScope(w, r, user)
+		if !ok {
+			return
+		}
+		if scope != id {
+			respond.Error(w, http.StatusForbidden, "forbidden for role")
+			return
+		}
+	}
+	student, err := a.academic.Student(r.Context(), id)
+	if err != nil {
+		respond.Err(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, student)
 }
 
 // studentAcademicRecord serves GET /api/v1/students/{id}/academic-record.
@@ -194,7 +256,8 @@ func (a *API) staff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := parsePage(r)
-	items, total, err := a.academic.Staff(r.Context(), page.Limit, page.Offset, r.URL.Query().Get("departmentId"))
+	q := r.URL.Query()
+	items, total, err := a.academic.Staff(r.Context(), page.Limit, page.Offset, q.Get("departmentId"), q.Get("q"))
 	if err != nil {
 		a.logger.Error("list staff", "error", err)
 		respond.Err(w, err)
@@ -202,6 +265,34 @@ func (a *API) staff(w http.ResponseWriter, r *http.Request) {
 	}
 	page.Total = total
 	respond.List(w, items, page)
+}
+
+// staffDetail serves GET /api/v1/staff/{id}. {id} may be "me" (resolved via
+// staffScope for the calling staff user) or a real staff id (any non-student
+// role, mirroring staff()'s list permission).
+func (a *API) staffDetail(w http.ResponseWriter, r *http.Request) {
+	user, ok := a.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if user.Role == "student" {
+		respond.Error(w, http.StatusForbidden, "forbidden for role")
+		return
+	}
+	id := r.PathValue("id")
+	if id == "me" {
+		scope, ok := a.staffScope(w, r, user)
+		if !ok {
+			return
+		}
+		id = scope
+	}
+	member, err := a.academic.StaffMember(r.Context(), id)
+	if err != nil {
+		respond.Err(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, member)
 }
 func (a *API) invoices(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireUser(w, r)
