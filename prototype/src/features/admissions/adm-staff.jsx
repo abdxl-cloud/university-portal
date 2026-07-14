@@ -1,6 +1,6 @@
 import React from "react";
-const { Avatar, Btn, Card, Empty, Icon, SPill, StatCards, Tag } = window;
-/* Admissions — STAFF (Admissions Officer) screens */
+const { Avatar, Btn, Card, Empty, Icon, SkeletonBlock, SPill, StatCards, Tag, useSkeleton } = window;
+/* Admissions: STAFF (Admissions Officer) screens */
 
 /* read a pool candidate's effective state: live candidate reflects store.admissions.state,
    seed candidates reflect store overrides, else their seed state */
@@ -32,6 +32,7 @@ function AdmDashboard({ store, actions, go }) {
   const list = admPoolList(store);  const count = (s) => list.filter((c) => c._state === s).length;
   const pending = list.filter((c) => ["submitted", "under_review", "queried"].includes(c._state)).length;
   const admitted = list.filter((c) => ["admitted", "accepted", "clearance_pending", "enrolled"].includes(c._state)).length;
+  const loadingQueue = useSkeleton();
 
   return (
     <div className="u-content">
@@ -47,13 +48,22 @@ function AdmDashboard({ store, actions, go }) {
         <Card className="u-pad">
           <div className="u-row" style={{ justifyContent: "space-between", marginBottom: 12 }}><div className="u-h3">Screening queue</div><a className="fb-link" onClick={() => go("adm-review")}>Open review</a></div>
           <div className="u-stack" style={{ gap: 8 }}>
-            {list.filter((c) => ["submitted", "under_review", "queried"].includes(c._state)).slice(0, 5).map((c) => (
+            {loadingQueue && Array.from({ length: 3 }).map((_, i) => (
+              <div key={"sk" + i} className="u-row" style={{ gap: 11, padding: "11px 13px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
+                <span className="fb-skeleton-shimmer" style={{ width: 32, height: 32, borderRadius: 999, background: "var(--bg-muted)", flexShrink: 0 }} />
+                <div className="u-grow" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <SkeletonBlock w="45%" />
+                  <SkeletonBlock w="65%" h={11} />
+                </div>
+              </div>
+            ))}
+            {!loadingQueue && list.filter((c) => ["submitted", "under_review", "queried"].includes(c._state)).slice(0, 5).map((c) => (
               <div key={c.id} className="u-row u-wrap" style={{ gap: 11, padding: "11px 13px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between", cursor: "pointer" }} onClick={() => go("adm-review")}>
                 <div className="u-row" style={{ gap: 11, minWidth: 0 }}><Avatar initials={c.name.split(" ").map((x) => x[0]).slice(0, 2).join("")} size={32} /><div style={{ minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 13.5 }}>{c.name}{c._live && <Tag variant="accent" style={{ marginLeft: 6 }}>You</Tag>}</div><div className="u-meta">{A.progById(c.prog).name} · UTME {c.score}</div></div></div>
                 <SPill tone={A.STATES[c._state].tone}>{A.STATES[c._state].label}</SPill>
               </div>
             ))}
-            {pending === 0 && <Empty icon="check" title="Queue is clear" sub="No applications waiting for screening." />}
+            {!loadingQueue && pending === 0 && <Empty icon="check" title="Queue is clear" sub="No applications waiting for screening." />}
           </div>
         </Card>
 
@@ -118,7 +128,7 @@ function AdmImport({ store, actions, go }) {
         {loading ? (
           <div className="u-pad u-stack" style={{ gap: 10 }}>{[0, 1, 2, 3].map((i) => <div key={i} className="u-skel" style={{ height: 44 }} />)}</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="u-table-scroll">
             <table className="u-table">
               <thead><tr><th style={{ width: 40 }}></th><th>JAMB no.</th><th>Name</th><th>Programme</th><th className="u-right">UTME</th><th>Validation</th></tr></thead>
               <tbody>

@@ -1,6 +1,6 @@
 import React from "react";
 const { Avatar, Btn, Card, Field, Icon, IconBtn, SPill } = window;
-/* Admissions — CANDIDATE experience (self-contained view) */
+/* Admissions: CANDIDATE experience (self-contained view) */
 
 function admProgress(state) {
   const A = window.ADM;
@@ -40,19 +40,19 @@ function CandidateShell({ store, actions, dark, setDark, onExit, children, route
 
       <div className="fb-drawer-backdrop" data-open={drawer} onClick={() => setDrawer(false)} />
       <div className="fb-drawer" data-open={drawer}>
-        <div className="u-brand" style={{ padding: "14px 16px" }}><div className="u-logo">FT</div><div className="u-grow"><div className="u-brand__name">FUTECH</div><div className="u-brand__sub">Admissions</div></div><IconBtn name="x" onClick={() => setDrawer(false)} /></div>
+        <div className="u-brand" style={{ padding: "14px 16px" }}><div className="u-logo">FT</div><div className="u-grow"><div className="u-brand__name">FUTECH</div><div className="u-brand__sub">Admissions</div></div><IconBtn name="x" onClick={() => setDrawer(false)} aria-label="Close navigation" /></div>
         <div className="u-drawer-nav u-grow"><NavInner onPick={() => setDrawer(false)} /></div>
         <div className="u-drawer-nav"><div className="fb-nav-item" onClick={onExit}><Icon name="logout" size={16} /> Exit</div></div>
       </div>
 
       <div className="u-main">
         <header className="u-topbar">
-          <button className="fb-icon-btn u-menu-btn" onClick={() => setDrawer(true)}><Icon name="menu" size={18} /></button>
+          <button className="fb-icon-btn u-menu-btn" onClick={() => setDrawer(true)} aria-label="Open navigation"><Icon name="menu" size={18} /></button>
           <div className="u-grow u-row" style={{ gap: 10, minWidth: 0 }}>
             <span className="u-h3" style={{ whiteSpace: "nowrap" }}>Application {new Date().getFullYear()}/{new Date().getFullYear() + 1}</span>
             <SPill tone={st.tone}>{st.label}</SPill>
           </div>
-          <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} />
+          <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"} />
           <div className="u-row" style={{ gap: 8, paddingLeft: 4 }}>
             <Avatar initials={A.ME.initials} size={30} />
             <div className="fb-hide-mobile" style={{ lineHeight: 1.1 }}><div style={{ fontWeight: 500, fontSize: 13 }}>{A.ME.first}</div><div className="u-meta" style={{ fontSize: 11 }}>Applicant</div></div>
@@ -108,7 +108,7 @@ function CandidateGate({ store, actions, dark, setDark, onExit, onReady }) {
       <div className="u-adm-gate__bar">
         <div className="u-row" style={{ gap: 10, cursor: "pointer" }} onClick={onExit}><div className="u-logo" style={{ width: 30, height: 30 }}>FT</div><div><div className="u-brand__name">FUTECH</div><div className="u-brand__sub">Admissions {new Date().getFullYear()}/{new Date().getFullYear() + 1}</div></div></div>
         <span className="u-grow" />
-        <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} />
+        <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"} />
         <Btn variant="ghost" onClick={onExit}>Back to site</Btn>
       </div>
 
@@ -117,7 +117,7 @@ function CandidateGate({ store, actions, dark, setDark, onExit, onReady }) {
           <div className="u-adm-land__hero">
             <span className="u-hero__eyebrow"><Icon name="spark" size={13} /> UTME admissions are now open</span>
             <h1>Begin your FUTECH application.</h1>
-            <p>Verify your JAMB number to import your details, complete screening, and track your admission — all in one place.</p>
+            <p>Verify your JAMB number to import your details, complete screening, and track your admission: all in one place.</p>
             <div className="u-adm-steps-preview">
               {[["barcode", "Verify JAMB"], ["shield", "Screening"], ["wallet", "Pay & submit"], ["cap", "Get admitted"]].map(([ic, l], i) => (
                 <div key={l} className="u-adm-step-chip"><span className="u-icon"><Icon name={ic} size={15} /></span><span>{l}</span>{i < 3 && <Icon name="chevron" size={13} className="u-adm-step-arrow" />}</div>

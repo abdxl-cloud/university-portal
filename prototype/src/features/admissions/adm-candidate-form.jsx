@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Field, Icon, Tag } = window;
-/* Admissions — CANDIDATE stepped screening form (autosaving) */
+/* Admissions: CANDIDATE stepped screening form (autosaving) */
 
 function CandidateForm({ store, actions, go }) {
   const A = window.ADM;
@@ -90,8 +90,25 @@ function CandidateForm({ store, actions, go }) {
 
 function FieldRow({ children }) { return <div className="u-grid u-grid--2" style={{ gap: 14 }}>{children}</div>; }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[0-9+()\-\s]{7,}$/;
+
+function bioErrors(form) {
+  return {
+    email: !form.email ? "Email address is required" : !EMAIL_RE.test(form.email) ? "Enter a valid email address" : "",
+    phone: !form.phone ? "Phone number is required" : !PHONE_RE.test(form.phone) ? "Enter a valid phone number" : "",
+    stateOfOrigin: !form.stateOfOrigin ? "State of origin is required" : "",
+    lga: !form.lga ? "L.G.A. is required" : "",
+    address: !form.address ? "Contact address is required" : "",
+  };
+}
+
 function BioStep({ form, set }) {
   const A = window.ADM;
+  const [touched, setTouched] = React.useState({});
+  const touch = (k) => setTouched((t) => ({ ...t, [k]: true }));
+  const errors = bioErrors(form);
+  const errFor = (k) => (touched[k] && errors[k]) || "";
   return (
     <div className="u-stack" style={{ gap: 14 }}>
       <div className="u-h3">Bio-data</div>
@@ -105,14 +122,24 @@ function BioStep({ form, set }) {
         <Field label="Date of birth"><input className="fb-input" type="date" value={form.dob} disabled /></Field>
       </FieldRow>
       <FieldRow>
-        <Field label="Email address"><input className="fb-input" value={form.email} onChange={(e) => set({ email: e.target.value })} /></Field>
-        <Field label="Phone number"><input className="fb-input" value={form.phone} onChange={(e) => set({ phone: e.target.value })} /></Field>
+        <Field label="Email address" error={errFor("email")}>
+          <input className="fb-input" data-invalid={!!errFor("email")} value={form.email} onChange={(e) => set({ email: e.target.value })} onBlur={() => touch("email")} />
+        </Field>
+        <Field label="Phone number" error={errFor("phone")}>
+          <input className="fb-input" data-invalid={!!errFor("phone")} value={form.phone} onChange={(e) => set({ phone: e.target.value })} onBlur={() => touch("phone")} />
+        </Field>
       </FieldRow>
       <FieldRow>
-        <Field label="State of origin"><input className="fb-input" value={form.stateOfOrigin} onChange={(e) => set({ stateOfOrigin: e.target.value })} /></Field>
-        <Field label="L.G.A."><input className="fb-input" value={form.lga} onChange={(e) => set({ lga: e.target.value })} /></Field>
+        <Field label="State of origin" error={errFor("stateOfOrigin")}>
+          <input className="fb-input" data-invalid={!!errFor("stateOfOrigin")} value={form.stateOfOrigin} onChange={(e) => set({ stateOfOrigin: e.target.value })} onBlur={() => touch("stateOfOrigin")} />
+        </Field>
+        <Field label="L.G.A." error={errFor("lga")}>
+          <input className="fb-input" data-invalid={!!errFor("lga")} value={form.lga} onChange={(e) => set({ lga: e.target.value })} onBlur={() => touch("lga")} />
+        </Field>
       </FieldRow>
-      <Field label="Contact address"><input className="fb-input" value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder="House no., street, town" /></Field>
+      <Field label="Contact address" error={errFor("address")}>
+        <input className="fb-input" data-invalid={!!errFor("address")} value={form.address} onChange={(e) => set({ address: e.target.value })} onBlur={() => touch("address")} placeholder="House no., street, town" />
+      </Field>
     </div>
   );
 }
@@ -166,7 +193,7 @@ function OlevelStep({ form, set }) {
             <select className="fb-input" style={{ width: 90 }} value={r.grade} onChange={(e) => setRow(i, { grade: e.target.value })}>
               {A.OLEVEL_GRADES.map((g) => <option key={g}>{g}</option>)}
             </select>
-            <button className="u-cmt__x" onClick={() => delRow(i)} aria-label="Remove" style={{ width: 34 }}><Icon name="trash" size={15} /></button>
+            <button className="fb-btn fb-btn--ghost fb-btn--sm" onClick={() => delRow(i)}>Remove</button>
           </div>
         ))}
       </div>
@@ -244,7 +271,7 @@ function ReviewStep({ form, store, actions, go, setStep }) {
   const credits = (form.olevel || []).filter((r) => A.OLEVEL_GRADES.indexOf(r.grade) <= 5 && r.subject).length;
   const docCount = Object.keys(form.docs || {}).length;
   const checks = [
-    { ok: !!form.email && !!form.phone, label: "Bio-data complete", fix: 0 },
+    { ok: Object.values(bioErrors(form)).every((e) => !e), label: "Bio-data complete", fix: 0 },
     { ok: A.ME.score >= prog.cutoff, label: "UTME meets programme cutoff", fix: 1, warn: A.ME.score < prog.cutoff },
     { ok: credits >= 5, label: "At least 5 O'Level credits", fix: 2 },
     { ok: docCount >= A.DOC_TYPES.length, label: "All documents uploaded (" + docCount + "/" + A.DOC_TYPES.length + ")", fix: 3 },
@@ -268,7 +295,7 @@ function ReviewStep({ form, store, actions, go, setStep }) {
           </div>
         ))}
       </div>
-      {checks.some((c) => c.warn && c.ok === false) && <div className="u-formerr"><Icon name="info" size={14} /> Your score is below the cutoff for {prog.name}. You may still submit, but admission isn't guaranteed — consider a change of course on CAPS.</div>}
+      {checks.some((c) => c.warn && c.ok === false) && <div className="u-formerr"><Icon name="info" size={14} /> Your score is below the cutoff for {prog.name}. You may still submit, but admission isn't guaranteed: consider a change of course on CAPS.</div>}
       <Btn variant="accent" size="lg" icon="check" disabled={!ready || submitting} onClick={submit} style={{ width: "100%" }}>{submitting ? "Submitting…" : "Submit application"}</Btn>
       {!ready && <div className="u-meta" style={{ textAlign: "center" }}>Complete all required items above to submit.</div>}
     </div>

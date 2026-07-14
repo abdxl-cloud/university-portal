@@ -1,6 +1,6 @@
 import React from "react";
-const { Avatar, Btn, Card, Empty, Field, Icon, IconBtn, Modal, ModalHead, PageHead, Seg, Tag, effScore, gradeOf, resultStatus, SGRADE_TONE } = window;
-/* Staff portal — course management & results approval */
+const { Avatar, Btn, Card, ConfirmButton, Empty, Field, Icon, IconBtn, Modal, ModalHead, PageHead, Seg, SkeletonBlock, Tag, useSkeleton, effScore, gradeOf, resultStatus, resultNote, SGRADE_TONE } = window;
+/* Staff portal: course management & results approval */
 
 function StaffCourses({ store, actions, go }) {
   const { STAFF_COURSES } = window.STAFF_DATA;
@@ -19,13 +19,13 @@ function StaffCourses({ store, actions, go }) {
         {STAFF_COURSES.map((c) => {
           const { ENROLLED } = window.STAFF_DATA;
           const st = resultStatus(store, c.code);
-          const tone = st === "approved" ? "success" : st === "submitted" ? "accent" : "warning";
+          const tone = st === "approved" ? "success" : st === "query" ? "danger" : st === "submitted" ? "accent" : "warning";
           const q = courseQueue(store, c.code);
           return (
             <Card key={c.code} className="u-pad" style={{ cursor: "pointer", display: "flex", flexDirection: "column", gap: 12 }} onClick={() => setOpen(c.code)}>
               <div className="u-row" style={{ justifyContent: "space-between" }}>
                 <span className="u-icon"><Icon name="book" size={16} /></span>
-                {q > 0 ? <Tag variant="warning" dot>{q} to grade</Tag> : <Tag variant={tone} dot>{st === "draft" ? "Results due" : st === "submitted" ? "Submitted" : "Approved"}</Tag>}
+                {q > 0 ? <Tag variant="warning" dot>{q} to grade</Tag> : <Tag variant={tone} dot>{st === "draft" ? "Results due" : st === "query" ? "Returned" : st === "submitted" ? "Submitted" : "Approved"}</Tag>}
               </div>
               <div>
                 <div className="u-row" style={{ gap: 8 }}><span className="fb-mono" style={{ fontWeight: 700, fontSize: 13 }}>{c.code}</span><Tag>{c.level}</Tag></div>
@@ -104,8 +104,43 @@ function RosterScores({ code, store, actions }) {
   const { ROSTERS } = window.STAFF_DATA;
   const roster = ROSTERS[code];
   const status = resultStatus(store, code);
-  const locked = status !== "draft";
+  const note = resultNote(store, code);
+  const locked = status !== "draft" && status !== "query";
   const [savedAt, setSavedAt] = React.useState(null);
+  const [importMsg, setImportMsg] = React.useState(null);
+  const [q, setQ] = React.useState("");
+  const importRef = React.useRef(null);
+  const loading = useSkeleton(450, [code]);
+
+  // EO workflow: lecturers get a fixed template, fill scores offline, import back
+  const downloadTemplate = () => {
+    const head = "matric,name,ca_30,exam_70";
+    const lines = roster.map((stu) => stu.matric + "," + stu.name.replace(/,/g, " ") + ",,");
+    const blob = new Blob([head + "\n" + lines.join("\n") + "\n"], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = code.replace(/\s+/g, "") + "-score-template.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const importScores = (file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result).split(/\r?\n/).filter(Boolean);
+      let applied = 0, unknown = 0;
+      lines.forEach((line) => {
+        if (/matric/i.test(line)) return;
+        const [matric, , ca, exam] = line.split(",").map((x) => (x || "").trim());
+        const stu = roster.find((r) => r.matric === matric);
+        if (!stu) { if (matric) unknown++; return; }
+        if (ca !== "") actions.setScore(code, matric, "ca", Math.max(0, Math.min(30, parseInt(ca, 10) || 0)));
+        if (exam !== "") actions.setScore(code, matric, "exam", Math.max(0, Math.min(70, parseInt(exam, 10) || 0)));
+        if (ca !== "" || exam !== "") applied++;
+      });
+      setImportMsg("Imported scores for " + applied + " student" + (applied === 1 ? "" : "s") + (unknown ? " · " + unknown + " unmatched matric no(s) skipped" : "") + ". Grades computed automatically.");
+    };
+    reader.readAsText(file);
+  };
 
   const setScore = (matric, field, raw) => {
     const max = field === "ca" ? 30 : 70;
@@ -119,6 +154,8 @@ function RosterScores({ code, store, actions }) {
     const total = (sc.ca == null || sc.exam == null) ? null : sc.ca + sc.exam;
     return { ...stu, ...sc, total, grade: gradeOf(total) };
   });
+  const query = q.trim().toLowerCase();
+  const visibleRows = rows.filter((r) => !query || r.name.toLowerCase().includes(query) || r.matric.toLowerCase().includes(query));
   const complete = rows.filter((r) => r.total != null).length;
   const allDone = complete === rows.length;
   const pass = rows.filter((r) => r.total != null && r.total >= 40).length;
@@ -130,29 +167,61 @@ function RosterScores({ code, store, actions }) {
           <div className="u-row" style={{ gap: 22 }}>
             <div><div className="u-meta">Scores entered</div><div className="u-h3 u-num">{complete} / {rows.length}</div></div>
             <div><div className="u-meta">Passing</div><div className="u-h3 u-num">{pass} / {rows.length}</div></div>
-            <div><div className="u-meta">Status</div><Tag variant={locked ? (status === "approved" ? "success" : "accent") : "warning"} dot>{locked ? (status === "approved" ? "Approved" : "Submitted") : "Draft"}</Tag></div>
+            <div><div className="u-meta">Status</div><Tag variant={status === "approved" ? "success" : status === "query" ? "danger" : locked ? "accent" : "warning"} dot>{status === "approved" ? "Approved" : status === "query" ? "Returned" : locked ? "Submitted" : "Draft"}</Tag></div>
           </div>
-          <div className="u-row" style={{ gap: 8 }}>
+          <div className="u-row u-wrap" style={{ gap: 8 }}>
             {savedAt && !locked && <span className="u-meta u-row" style={{ gap: 5 }}><Icon name="check" size={13} style={{ color: "var(--success)" }} /> Saved</span>}
+            {!locked && <Btn variant="secondary" size="sm" icon="download" onClick={downloadTemplate}>Download template</Btn>}
+            {!locked && (
+              <>
+                <input ref={importRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) importScores(f); e.target.value = ""; }} />
+                <Btn variant="secondary" size="sm" icon="doc" onClick={() => importRef.current && importRef.current.click()}>Import scores</Btn>
+              </>
+            )}
             {!locked && (
               <Btn variant="accent" icon="chart" disabled={!allDone}
                 onClick={() => actions.submitResults(code)}>
-                {allDone ? "Submit results for approval" : "Enter all scores to submit"}
+                {!allDone ? "Enter all scores to submit" : status === "query" ? "Resubmit results" : "Submit results for approval"}
               </Btn>
             )}
           </div>
         </div>
-        {locked && <div className="u-meta" style={{ marginTop: 10 }}>{status === "submitted" ? "Results submitted to the HOD — scores are locked pending approval." : "Results approved and released to students — scores are locked."}</div>}
+        {status === "query" && note && (
+          <div className="u-formerr" style={{ marginTop: 12 }}>
+            <Icon name="info" size={14} />
+            <span>Exams &amp; Records returned this sheet: “{note}”</span>
+          </div>
+        )}
+        {importMsg && !locked && <div className="u-meta" style={{ marginTop: 10 }}><Icon name="check" size={13} style={{ color: "var(--success)" }} /> {importMsg}</div>}
+        {!locked && !importMsg && status !== "query" && <div className="u-meta" style={{ marginTop: 10 }}>Fill scores here, or download the template, complete it offline and import: grades are computed on import.</div>}
+        {locked && <div className="u-meta" style={{ marginTop: 10 }}>{status === "submitted" ? "Results submitted for departmental scrutiny: scores are locked pending approval." : "Results approved and released: scores are locked."}</div>}
       </Card>
 
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-toolbar">
+          <label className="u-stack u-table-search" style={{ gap: 5 }}>
+            <span className="u-meta">Search score sheet</span>
+            <input className="fb-input" placeholder="Student name or matric number" value={q} onChange={(e) => setQ(e.target.value)} />
+          </label>
+          <span className="u-meta">{visibleRows.length} of {rows.length} students</span>
+        </div>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead>
               <tr><th>Matric</th><th>Student</th><th className="u-right">CA / 30</th><th className="u-right">Exam / 70</th><th className="u-right">Total</th><th className="u-right">Grade</th></tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {loading && Array.from({ length: 5 }).map((_, i) => (
+                <tr key={"sk" + i}>
+                  <td><SkeletonBlock w={80} /></td>
+                  <td><SkeletonBlock w="65%" /></td>
+                  <td className="u-right"><SkeletonBlock w={30} /></td>
+                  <td className="u-right"><SkeletonBlock w={30} /></td>
+                  <td className="u-right"><SkeletonBlock w={30} /></td>
+                  <td className="u-right"><SkeletonBlock w={24} /></td>
+                </tr>
+              ))}
+              {!loading && visibleRows.map((r) => (
                 <tr key={r.matric}>
                   <td className="fb-mono" style={{ fontSize: 12 }}>{r.matric}</td>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
@@ -163,12 +232,13 @@ function RosterScores({ code, store, actions }) {
                   <td className="u-right">
                     <input className="fb-input u-score" type="number" min="0" max="70" value={r.exam == null ? "" : r.exam}
                       disabled={locked} onChange={(e) => setScore(r.matric, "exam", e.target.value)}
-                      placeholder="—" />
+                      placeholder="Enter score" />
                   </td>
-                  <td className="u-right u-num" style={{ fontWeight: 600 }}>{r.total == null ? "—" : r.total}</td>
-                  <td className="u-right">{r.total == null ? <span className="u-muted">—</span> : <Tag variant={SGRADE_TONE[r.grade]}>{r.grade}</Tag>}</td>
+                  <td className="u-right u-num" style={{ fontWeight: 600 }}>{r.total == null ? "Not available" : r.total}</td>
+                  <td className="u-right">{r.total == null ? <span className="u-muted">Not available</span> : <Tag variant={SGRADE_TONE[r.grade]}>{r.grade}</Tag>}</td>
                 </tr>
               ))}
+              {visibleRows.length === 0 && <tr><td colSpan={6}><Empty title="No matching students" sub="Search by student name or matric number." /></td></tr>}
             </tbody>
           </table>
         </div>
@@ -268,7 +338,7 @@ function CreateAssignmentModal({ code, actions, onClose }) {
     <Modal onClose={onClose}>
       <ModalHead title="Create assignment" sub={code} onClose={onClose} />
       <div className="u-pad u-stack" style={{ gap: 14 }}>
-        <Field label="Title"><input className="fb-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Assignment 3 — Indexing" /></Field>
+        <Field label="Title"><input className="fb-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Assignment 3: Indexing" /></Field>
         <div className="u-row" style={{ gap: 10 }}>
           <Field label="Due date"><input className="fb-input" value={due} onChange={(e) => setDue(e.target.value)} placeholder="Nov 22, 2025" /></Field>
           <Field label="Marks"><input className="fb-input" type="number" value={points} onChange={(e) => setPoints(parseInt(e.target.value, 10) || 0)} /></Field>
@@ -341,7 +411,7 @@ function SubmissionReview({ assignment, sub, store, actions, onClose }) {
               <div className="u-meta">{assignment.title}</div>
             </div>
           </div>
-          <IconBtn name="x" onClick={onClose} />
+          <IconBtn name="x" onClick={onClose} aria-label="Close" />
         </div>
 
         <div className="u-review__body">
@@ -363,7 +433,7 @@ function SubmissionReview({ assignment, sub, store, actions, onClose }) {
                     </>
                   )}
                   {paras.map((p, i) => <p key={i} style={{ margin: "0 0 11px", fontSize: 12.5, lineHeight: 1.7, color: "var(--fg-muted)" }}>{p}</p>)}
-                  <div className="u-meta" style={{ textAlign: "center", marginTop: 12 }}>— {pi + 1} —</div>
+                  <div className="u-meta" style={{ textAlign: "center", marginTop: 12 }}>: {pi + 1} :</div>
                 </div>
               ))}
             </div>
@@ -393,7 +463,7 @@ function SubmissionReview({ assignment, sub, store, actions, onClose }) {
                     <div key={c.id} className="u-cmt">
                       <div className="u-row" style={{ justifyContent: "space-between", marginBottom: 3 }}>
                         <span className="u-meta" style={{ fontWeight: 600 }}>{c.page ? "Page " + c.page : "General"}</span>
-                        <button className="u-cmt__x" onClick={() => actions.removeFeedback(assignment.id, sub.matric, c.id)} aria-label="Delete"><Icon name="x" size={12} /></button>
+                        <ConfirmButton size="sm" title="Delete this comment?" body="This feedback comment will be permanently removed." onConfirm={() => actions.removeFeedback(assignment.id, sub.matric, c.id)}>Delete</ConfirmButton>
                       </div>
                       <div style={{ fontSize: 13, lineHeight: 1.45 }}>{c.text}</div>
                       <div className="u-meta" style={{ marginTop: 4, fontSize: 11 }}>{c.at}</div>
@@ -461,9 +531,9 @@ function StaffMaterials({ code, store, actions }) {
             <button className="u-row" onClick={() => inputRef.current?.click()}
               style={{ width: "100%", gap: 12, padding: "20px 16px", border: "1.5px dashed var(--border-strong)", borderRadius: "var(--r-md)", background: "var(--bg-sunken)", cursor: "pointer", color: "inherit", textAlign: "left" }}>
               <span className="u-icon"><Icon name="download" size={16} /></span>
-              <div className="u-grow"><div style={{ fontWeight: 500, fontSize: 13.5 }}>Choose a file to share</div><div className="u-meta">PDF, PPTX, ZIP, DOCX — up to 50 MB</div></div>
+              <div className="u-grow"><div style={{ fontWeight: 500, fontSize: 13.5 }}>Choose a file to share</div><div className="u-meta">PDF, PPTX, ZIP, DOCX: up to 50 MB</div></div>
             </button>
-            <div className="u-meta" style={{ textAlign: "center" }}>Demo only — your file is not uploaded anywhere.</div>
+            <div className="u-meta" style={{ textAlign: "center" }}>Demo only: your file is not uploaded anywhere.</div>
           </div>
         </Modal>
       )}
@@ -506,86 +576,4 @@ function StaffStream({ code, store, actions }) {
   );
 }
 
-/* ---------------- results & approvals ---------------- */
-function StaffResults({ store, actions, go }) {
-  const { STAFF_COURSES, ROSTERS, ENROLLED } = window.STAFF_DATA;
-
-  return (
-    <div className="u-content">
-      <PageHead title="Results & Approvals" sub="Submit course results through the approval workflow" />
-
-      <Card className="u-pad" style={{ marginBottom: 16, background: "var(--bg-sunken)" }}>
-        <div className="u-row u-wrap" style={{ gap: 8, alignItems: "center" }}>
-          <span className="u-meta" style={{ fontWeight: 600 }}>Approval flow:</span>
-          {["Lecturer", "HOD", "Faculty", "Senate", "Released"].map((s, i) => (
-            <React.Fragment key={s}>
-              {i > 0 && <Icon name="chevron" size={13} style={{ color: "var(--fg-subtle)" }} />}
-              <Tag>{s}</Tag>
-            </React.Fragment>
-          ))}
-        </div>
-      </Card>
-
-      <div className="u-stack" style={{ gap: 14 }}>
-        {STAFF_COURSES.map((c) => {
-          const status = resultStatus(store, c.code);
-          const roster = ROSTERS[c.code];
-          const rows = roster.map((stu) => {
-            const sc = effScore(store, c.code, stu.matric, stu);
-            return (sc.ca == null || sc.exam == null) ? null : sc.ca + sc.exam;
-          });
-          const entered = rows.filter((t) => t != null);
-          const complete = entered.length === roster.length;
-          const pass = entered.filter((t) => t >= 40).length;
-          const passRate = entered.length ? Math.round((pass / entered.length) * 100) : 0;
-          const stepIndex = status === "approved" ? 4 : status === "submitted" ? 1 : 0;
-
-          return (
-            <Card key={c.code} className="u-pad">
-              <div className="u-row u-wrap" style={{ justifyContent: "space-between", gap: 14 }}>
-                <div className="u-row" style={{ gap: 14, minWidth: 0 }}>
-                  <span className="u-icon" style={{ width: 40, height: 40 }}><Icon name="chart" size={18} /></span>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="u-row" style={{ gap: 8 }}><span className="fb-mono" style={{ fontWeight: 700 }}>{c.code}</span><Tag>{c.level}</Tag></div>
-                    <div style={{ fontWeight: 600 }}>{c.title}</div>
-                    <div className="u-meta" style={{ marginTop: 2 }}>{ENROLLED[c.code]} students · {complete ? "all scores entered" : entered.length + "/" + roster.length + " scores entered"}{entered.length ? " · " + passRate + "% pass" : ""}</div>
-                  </div>
-                </div>
-                <div className="u-stack" style={{ gap: 8, alignItems: "flex-end" }}>
-                  <Tag variant={status === "approved" ? "success" : status === "submitted" ? "accent" : "warning"} dot>
-                    {status === "approved" ? "Approved & released" : status === "submitted" ? "Awaiting HOD" : "Draft"}
-                  </Tag>
-                  {status === "draft" && (
-                    <Btn variant="accent" size="sm" icon="chart" disabled={!complete} onClick={() => actions.submitResults(c.code)}>
-                      {complete ? "Submit for approval" : "Scores incomplete"}
-                    </Btn>
-                  )}
-                  {status === "submitted" && (
-                    <Btn variant="secondary" size="sm" onClick={() => actions.approveResults(c.code)}>▶ Simulate HOD approval</Btn>
-                  )}
-                </div>
-              </div>
-
-              <div className="u-steps u-wrap" style={{ marginTop: 16 }}>
-                {["Lecturer", "HOD", "Faculty", "Senate", "Released"].map((s, i) => {
-                  const state = i < stepIndex ? "done" : i === stepIndex ? "active" : "todo";
-                  return (
-                    <React.Fragment key={s}>
-                      {i > 0 && <div className="u-step__line" />}
-                      <div className="u-step" data-state={state}>
-                        <span className="u-step__n">{state === "done" ? <Icon name="check" size={12} /> : i + 1}</span>
-                        <span className="fb-hide-mobile">{s}</span>
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-Object.assign(window, { StaffCourses, CourseManage, StaffResults, courseQueue });
+Object.assign(window, { StaffCourses, CourseManage, courseQueue });

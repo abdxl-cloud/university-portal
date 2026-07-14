@@ -7,30 +7,33 @@ function PublicNav({ go, dark, setDark }) {
   const [open, setOpen] = React.useState(false);
   const close = () => setOpen(false);
   return (
-    <div className="u-pub__nav">
-      <div className="u-row" style={{ gap: 10, cursor: "pointer" }} onClick={() => go("home")}>
-        <div className="u-logo" style={{ width: 32, height: 32 }}>FT</div>
-        <div className="fb-hide-mobile">
-          <div className="u-brand__name">FUTECH</div>
-          <div className="u-brand__sub">Federal University of Technology</div>
+    <>
+      <div className="u-pub__nav">
+        <div className="u-row" style={{ gap: 10, cursor: "pointer" }} onClick={() => go("home")}>
+          <div className="u-logo" style={{ width: 32, height: 32 }}>FT</div>
+          <div className="fb-hide-mobile">
+            <div className="u-brand__name">FUTECH</div>
+            <div className="u-brand__sub">Federal University of Technology</div>
+          </div>
         </div>
+        <div className="u-pub__links">
+          {links.map((l) => <a key={l} onClick={() => go("home")}>{l}</a>)}
+        </div>
+        <span className="u-grow" />
+        <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"} />
+        <Btn variant="ghost" className="u-pub__cta" onClick={() => go("login")}>Sign in</Btn>
+        <Btn variant="accent" className="u-pub__cta" iconRight="arrowRight" onClick={() => go("login")}>Student Portal</Btn>
+        <button className="fb-icon-btn u-pub__burger" onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" size={18} /></button>
       </div>
-      <div className="u-pub__links">
-        {links.map((l) => <a key={l} onClick={() => go("home")}>{l}</a>)}
-      </div>
-      <span className="u-grow" />
-      <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} />
-      <Btn variant="ghost" className="u-pub__cta" onClick={() => go("login")}>Sign in</Btn>
-      <Btn variant="accent" className="u-pub__cta" iconRight="arrowRight" onClick={() => go("login")}>Student Portal</Btn>
-      <button className="fb-icon-btn u-pub__burger" onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" size={18} /></button>
 
-      {/* mobile drawer */}
+      {/* mobile drawer: rendered outside .u-pub__nav, since its backdrop-filter would otherwise
+          become the containing block for these fixed-position elements and clip them to its 64px height */}
       <div className="fb-drawer-backdrop" data-open={open} onClick={close} />
       <div className="fb-drawer fb-drawer--right" data-open={open}>
         <div className="u-brand" style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
           <div className="u-logo" style={{ width: 30, height: 30 }}>FT</div>
           <div className="u-grow"><div className="u-brand__name">FUTECH</div><div className="u-brand__sub">Federal University of Technology</div></div>
-          <IconBtn name="x" onClick={close} />
+          <IconBtn name="x" onClick={close} aria-label="Close menu" />
         </div>
         <div className="u-pub__draw-links u-grow">
           {links.map((l) => <a key={l} onClick={() => { go("home"); close(); }}>{l}</a>)}
@@ -40,7 +43,7 @@ function PublicNav({ go, dark, setDark }) {
           <Btn variant="accent" size="lg" iconRight="arrowRight" onClick={() => { go("login"); close(); }}>Student Portal</Btn>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -66,7 +69,7 @@ function PublicHome({ go, dark, setDark }) {
         <div className="u-hero__inner">
           <span className="u-hero__eyebrow"><Icon name="spark" size={13} /> 2025/2026 admissions & registration now open</span>
           <h1>A connected campus, from application to graduation.</h1>
-          <p>One secure platform for fees, course registration, results, hostel allocation and everything in between — for students, lecturers and staff.</p>
+          <p>One secure platform for fees, course registration, results, hostel allocation and everything in between: for students, lecturers and staff.</p>
           <div className="u-row u-wrap" style={{ gap: 10, marginTop: 28 }}>
             <Btn variant="accent" size="lg" iconRight="arrowRight" onClick={() => go("login")}>Enter Student Portal</Btn>
             <Btn variant="secondary" size="lg" onClick={() => go("apply")}>Apply for admission</Btn>
@@ -154,11 +157,15 @@ function PublicHome({ go, dark, setDark }) {
 }
 
 function Login({ go, onLogin, dark, setDark }) {
-  const [role, setRole] = React.useState("student");
-  const [staffRole, setStaffRole] = React.useState("lecturer");
+  // remember whichever tab/role was last signed in as, so returning to
+  // /login (e.g. after signing out) doesn't reset to the student default
+  const lastRole = localStorage.getItem("futech.role") || "student";
+  const lastRoleIsStaff = lastRole !== "student" && (window.ROLE_IDS || []).includes(lastRole);
+  const [role, setRole] = React.useState(lastRole === "student" ? "student" : "staff");
+  const [staffRole, setStaffRole] = React.useState(lastRoleIsStaff ? lastRole : "lecturer");
   const staffIds = {
     lecturer: "FUT/STF/CSC/0391", adviser: "FUT/STF/CSC/0288", hod: "FUT/STF/CSC/0102",
-    dean: "FUT/STF/COM/0007", dean2: "FUT/STF/ENG/0004", exams: "FUT/STF/EXM/0451", bursary: "FUT/STF/BUR/0319",
+    dean: "FUT/STF/COM/0007", exams: "FUT/STF/EXM/0451", bursary: "FUT/STF/BUR/0319",
     hostel: "FUT/STF/SAF/0277", registry: "FUT/STF/REG/0061", ict: "FUT/STF/ICT/0015",
     librarian: "FUT/STF/LIB/0044", clinic: "FUT/STF/MED/0009", admissions: "FUT/STF/ADM/0048",
   };
@@ -168,7 +175,7 @@ function Login({ go, onLogin, dark, setDark }) {
     student: { id: "FUT/2022/CSC/10428", label: "Matriculation number", sub: "Sign in with your matriculation number to continue." },
     staff: { id: staffIds[staffRole], label: "Staff ID", sub: "Choose your role and sign in to continue." },
   };
-  const [matric, setMatric] = React.useState(presets.student.id);
+  const [matric, setMatric] = React.useState(presets[role === "student" ? "student" : "staff"].id);
   const [pw, setPw] = React.useState("demo1234");
   const pickRole = (r) => { setRole(r); setMatric(r === "student" ? presets.student.id : staffIds[staffRole]); };
   const pickStaffRole = (sr) => { setStaffRole(sr); setMatric(staffIds[sr]); };
@@ -182,7 +189,7 @@ function Login({ go, onLogin, dark, setDark }) {
             <div className="u-logo">FT</div>
             <div>
               <div className="u-brand__name">FUTECH</div>
-              <div className="u-brand__sub">Student Portal</div>
+              <div className="u-brand__sub">{role === "student" ? "Student Portal" : "Staff & Admin Portal"}</div>
             </div>
           </div>
           <div className="u-h1" style={{ fontSize: 24 }}>Welcome back</div>
@@ -232,10 +239,12 @@ function Login({ go, onLogin, dark, setDark }) {
         </div>
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", padding: 48 }}>
           <div style={{ position: "relative", zIndex: 2, maxWidth: 380 }}>
-            <Icon name="cap" size={30} style={{ color: "var(--accent)" }} />
-            <div className="u-h1" style={{ fontSize: 28, marginTop: 16 }}>Everything you need, in one portal.</div>
+            <Icon name={role === "student" ? "cap" : "layers"} size={30} style={{ color: "var(--accent)" }} />
+            <div className="u-h1" style={{ fontSize: 28, marginTop: 16 }}>{role === "student" ? "Everything you need, in one portal." : "Every role, one console."}</div>
             <div className="u-muted" style={{ marginTop: 12, fontSize: 14.5, lineHeight: 1.5 }}>
-              Pay your fees, register courses, secure a hostel bed space and check results — without queuing at any office.
+              {role === "student"
+                ? "Pay your fees, register courses, secure a hostel bed space and check results: without queuing at any office."
+                : "Approve results, manage courses, track admissions and handle department duties: whichever staff role you sign in as."}
             </div>
           </div>
         </div>

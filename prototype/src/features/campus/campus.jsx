@@ -1,6 +1,6 @@
 import React from "react";
-const { Btn, Card, Empty, Field, Icon, Modal, ModalHead, PageHead, PayModal, Seg, Tag } = window;
-/* Student campus services — Library & Clinic */
+const { Btn, Card, ConfirmButton, Empty, Field, Icon, Modal, ModalHead, PageHead, PayModal, Seg, Tag } = window;
+/* Student campus services: Library & Clinic */
 
 /* ============ LIBRARY (student) ============ */
 function Library({ store, actions }) {
@@ -141,7 +141,7 @@ function Library({ store, actions }) {
                   <span className="u-icon u-icon--plain"><Icon name="clock" size={15} /></span>
                   <div className="u-grow"><div style={{ fontWeight: 500, fontSize: 13.5 }}>{r.title}</div><div className="u-meta">{r.author}</div></div>
                   <Tag variant="warning" dot>In queue</Tag>
-                  <Btn variant="ghost" size="sm" onClick={() => actions.cancelReservation(r.bookId)}>Cancel</Btn>
+                  <ConfirmButton size="sm" title="Cancel this reservation?" body={"You'll lose your place in the queue for “" + r.title + "”."} onConfirm={() => actions.cancelReservation(r.bookId)}>Cancel</ConfirmButton>
                 </div>
               ))}
             </div>
@@ -216,7 +216,7 @@ function Clinic({ store, actions }) {
             </Card>
             <Card className="u-pad">
               <div className="u-h3" style={{ marginBottom: 10 }}>Need to see a doctor?</div>
-              <div className="u-muted" style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 14 }}>Book an appointment at the campus medical centre — no queuing required.</div>
+              <div className="u-muted" style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 14 }}>Book an appointment at the campus medical centre: no queuing required.</div>
               <Btn variant="accent" icon="heart" style={{ width: "100%" }} onClick={() => setTab("book")}>Book appointment</Btn>
               <div className="u-meta" style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
                 <strong style={{ color: "var(--danger)" }}>Emergency?</strong> Call the clinic directly on <strong>+234 800 FUTECH MED</strong> or go to the Medical Centre (open 24/7).
@@ -239,7 +239,7 @@ function Clinic({ store, actions }) {
                   </div>
                   <div className="u-row" style={{ gap: 8 }}>
                     <SPill s={a.status} />
-                    {a.status !== "completed" && <Btn variant="ghost" size="sm" onClick={() => actions.cancelAppointment(a.id)}>Cancel</Btn>}
+                    {a.status !== "completed" && <ConfirmButton size="sm" title="Cancel this appointment?" body={a.service + " on " + a.date + " at " + a.time + " will be cancelled."} onConfirm={() => actions.cancelAppointment(a.id)}>Cancel</ConfirmButton>}
                   </div>
                 </div>
               ))}
@@ -264,7 +264,7 @@ function Clinic({ store, actions }) {
           </Card>
           <Card className="u-pad">
             <div className="u-h3" style={{ marginBottom: 10 }}>Laboratory results</div>
-            <div style={{ overflowX: "auto" }}>
+            <div className="u-table-scroll">
               <table className="u-table">
                 <thead><tr><th>Date</th><th>Test</th><th>Result</th><th>Status</th></tr></thead>
                 <tbody>{C.LABS.map((l, i) => (<tr key={i}><td style={{ whiteSpace: "nowrap" }}>{l.date}</td><td>{l.test}</td><td className="u-num">{l.result}</td><td><Tag variant="success" dot>{l.status}</Tag></td></tr>))}</tbody>

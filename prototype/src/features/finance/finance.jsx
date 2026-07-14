@@ -1,6 +1,6 @@
 import React from "react";
-const { Btn, Card, Icon, Modal, ModalHead, PageHead, Stat, Tag } = window;
-/* Finance hub — payments, services, history. Reusable PayModal. */
+const { Btn, Card, Icon, Modal, ModalHead, PageHead, SkeletonBlock, Stat, Tag, useSkeleton } = window;
+/* Finance hub: payments, services, history. Reusable PayModal. */
 
 /* Reusable payment modal */
 function PayModal({ title, sub, amount, onClose, onPaid }) {
@@ -38,7 +38,7 @@ function PayModal({ title, sub, amount, onClose, onPaid }) {
         <Btn variant="accent" size="lg" disabled={processing} onClick={pay} style={{ width: "100%" }}>
           {processing ? "Processing…" : "Pay " + fmt(amount)}
         </Btn>
-        <div className="u-meta" style={{ textAlign: "center" }}>This is a demo — no real payment is made.</div>
+        <div className="u-meta" style={{ textAlign: "center" }}>This is a demo: no real payment is made.</div>
       </div>
     </Modal>
   );
@@ -54,7 +54,7 @@ function ledger(store) {
       date: store.feesReceipt.date, method: store.feesReceipt.method, category: "Obligatory", session: FEES.session });
   }
   if (store.hostel && store.hostel.status === "allocated") {
-    rows.push({ id: "hostel-cur", label: "Hostel Fee — " + store.hostel.hostelName, amount: store.hostel.price,
+    rows.push({ id: "hostel-cur", label: "Hostel Fee: " + store.hostel.hostelName, amount: store.hostel.price,
       ref: store.hostel.ref, date: store.hostel.date || "This session", method: store.hostel.method || "Card", category: "Accommodation", session: FEES.session });
   }
   (store.payments || []).forEach((p) => rows.push({ ...p, session: FEES.session }));
@@ -69,6 +69,7 @@ function chargeStatus(charge, store) {
 function Finance({ store, actions, go }) {
   const { FEES, CHARGES, STUDENT, fmt } = window.DATA;
   const [payFor, setPayFor] = React.useState(null);
+  const loadingHistory = useSkeleton();
   const feesTotal = window.totalFees();
 
   const all = ledger(store);
@@ -175,11 +176,22 @@ function Finance({ store, actions, go }) {
       {/* history */}
       <div className="u-h3" style={{ marginBottom: 10 }}>Payment history</div>
       <Card>
-        <div style={{ overflowX: "auto" }}>
+        <div className="u-table-scroll">
           <table className="u-table">
             <thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Reference</th><th>Method</th><th className="u-right">Amount</th></tr></thead>
             <tbody>
-              {all.map((r) => (
+              {loadingHistory ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={"sk" + i}>
+                    <td><SkeletonBlock w={64} /></td>
+                    <td><SkeletonBlock w="70%" /></td>
+                    <td><SkeletonBlock w={80} /></td>
+                    <td><SkeletonBlock w={90} /></td>
+                    <td><SkeletonBlock w={70} /></td>
+                    <td className="u-right"><SkeletonBlock w={60} /></td>
+                  </tr>
+                ))
+              ) : all.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: "nowrap" }}>{r.date}</td>
                   <td><div style={{ fontWeight: 500 }}>{r.label}</div><div className="u-meta">{r.session}</div></td>

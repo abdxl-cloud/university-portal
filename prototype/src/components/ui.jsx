@@ -1,6 +1,6 @@
 import React from "react";
 const { Icon } = window;
-/* Shared UI primitives (React) — map onto tokens.css classes */
+/* Shared UI primitives (React): map onto tokens.css classes */
 
 function Btn({ variant = "secondary", size, icon, iconRight, children, className = "", ...rest }) {
   const cls = ["fb-btn", "fb-btn--" + variant];
@@ -15,9 +15,9 @@ function Btn({ variant = "secondary", size, icon, iconRight, children, className
   );
 }
 
-function IconBtn({ name, size = 18, ...rest }) {
+function IconBtn({ name, size = 18, className = "", ...rest }) {
   return (
-    <button className="fb-icon-btn" {...rest}>
+    <button className={"fb-icon-btn" + (className ? " " + className : "")} {...rest}>
       <Icon name={name} size={size} />
     </button>
   );
@@ -52,12 +52,12 @@ function Avatar({ initials, size = 32 }) {
   );
 }
 
-function Field({ label, hint, children }) {
+function Field({ label, hint, error, children }) {
   return (
     <label className="u-stack" style={{ gap: 6 }}>
       {label && <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>}
       {children}
-      {hint && <span className="u-meta">{hint}</span>}
+      {error ? <span className="u-meta" style={{ color: "var(--danger)" }}>{error}</span> : hint && <span className="u-meta">{hint}</span>}
     </label>
   );
 }
@@ -84,18 +84,84 @@ function Seg({ value, onChange, options }) {
   );
 }
 
+function focusableIn(node) {
+  if (!node) return [];
+  return Array.from(node.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter((el) => !el.disabled && el.offsetParent !== null);
+}
+
 function Modal({ children, onClose, lg }) {
+  const ref = React.useRef(null);
+  const prevFocus = React.useRef(null);
+
+  // trap focus inside the dialog while open, and hand it back to whatever
+  // opened the modal on close (icon-only trigger buttons otherwise lose focus)
   React.useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onClose && onClose(); };
+    prevFocus.current = document.activeElement;
+    const first = focusableIn(ref.current)[0];
+    (first || ref.current) && (first || ref.current).focus();
+    const h = (e) => {
+      if (e.key === "Escape") { onClose && onClose(); return; }
+      if (e.key !== "Tab") return;
+      const f = focusableIn(ref.current);
+      if (f.length === 0) { e.preventDefault(); return; }
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    return () => {
+      window.removeEventListener("keydown", h);
+      if (prevFocus.current && prevFocus.current.focus) prevFocus.current.focus();
+    };
   }, [onClose]);
+
   return (
     <div className="u-modal-bg" onClick={onClose}>
-      <div className={"u-modal" + (lg ? " u-modal--lg" : "")} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className={"u-modal" + (lg ? " u-modal--lg" : "")} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabIndex={-1}>
         {children}
       </div>
     </div>
+  );
+}
+
+/* "Are you sure?" popup for destructive/high-stakes actions: shown before
+   the action fires, not as after-the-fact feedback */
+function Confirm({ title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true, onConfirm, onClose }) {
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <Modal onClose={onClose}>
+      <ModalHead title={title} onClose={onClose} />
+      <div style={{ padding: "18px 22px" }}>
+        {typeof body === "string" ? <div className="u-muted" style={{ fontSize: 13.5, lineHeight: 1.5 }}>{body}</div> : body}
+      </div>
+      <div className="u-row" style={{ gap: 8, justifyContent: "flex-end", padding: "14px 22px", borderTop: "1px solid var(--border)" }}>
+        <Btn variant="secondary" onClick={onClose}>{cancelLabel}</Btn>
+        <Btn variant={danger ? "danger" : "accent"} disabled={busy} onClick={() => { setBusy(true); onConfirm(); }}>{confirmLabel}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+/* drop-in replacement for a plain destructive <Btn>: shows a Confirm popup
+   before calling onConfirm, instead of firing immediately on click */
+function ConfirmButton({ children, variant = "ghost", size, icon, title, body, confirmLabel, cancelLabel, danger = true, onConfirm, ...rest }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Btn variant={variant} size={size} icon={icon} onClick={() => setOpen(true)} {...rest}>{children}</Btn>
+      {open && (
+        <Confirm
+          title={title || children}
+          body={body}
+          confirmLabel={confirmLabel || children}
+          cancelLabel={cancelLabel}
+          danger={danger}
+          onConfirm={() => { setOpen(false); onConfirm(); }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -140,6 +206,22 @@ function Empty({ icon, title, sub }) {
   );
 }
 
+/* brief skeleton-loading state for data-heavy screens on mount/tab switch */
+function useSkeleton(delay = 450, deps = []) {
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), delay);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return loading;
+}
+
+function SkeletonBlock({ w = "100%", h = 13 }) {
+  return <span className="fb-skeleton-shimmer" style={{ display: "inline-block", width: w, height: h, borderRadius: 4, background: "var(--bg-muted)" }} />;
+}
+
 /* ---- pagination ---- */
 function usePaged(items, initialSize = 10) {
   const [page, setPage] = React.useState(1);
@@ -170,11 +252,11 @@ function Pagination({ pager, sizes = [10, 25, 50], label = "rows", noSize }) {
     <div className="u-pager">
       <div className="u-pager__info">{start + 1}–{start + slice.length} of {total.toLocaleString()} {label}</div>
       <div className="u-pager__btns">
-        <button className="u-pager__pg" disabled={page === 1} onClick={() => setPage(page - 1)} aria-label="Previous"><Icon name="arrowLeft" size={14} /></button>
+        <button className="u-pager__pg u-pager__text" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
         {nums.map((n, i) => n === "…"
           ? <span key={"e" + i} className="u-pager__ellip">…</span>
           : <button key={n} className="u-pager__pg" data-on={n === page} onClick={() => setPage(n)}>{n}</button>)}
-        <button className="u-pager__pg" disabled={page === pages} onClick={() => setPage(page + 1)} aria-label="Next"><Icon name="chevron" size={14} /></button>
+        <button className="u-pager__pg u-pager__text" disabled={page === pages} onClick={() => setPage(page + 1)}>Next</button>
       </div>
       {!noSize && (
         <label className="u-pager__size">Show
@@ -188,6 +270,6 @@ function Pagination({ pager, sizes = [10, 25, 50], label = "rows", noSize }) {
 }
 
 Object.assign(window, {
-  Btn, IconBtn, Tag, Card, Switch, Avatar, Field, Stat, Seg, Modal, ModalHead, Steps, Empty,
-  usePaged, Pagination,
+  Btn, IconBtn, Tag, Card, Switch, Avatar, Field, Stat, Seg, Modal, ModalHead, Confirm, ConfirmButton, Steps, Empty,
+  usePaged, Pagination, useSkeleton, SkeletonBlock,
 });

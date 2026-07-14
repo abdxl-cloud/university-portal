@@ -41,6 +41,15 @@ const NAV_400 = [
   { section: "Account", items: [["profile", "Profile", "user"], ["support", "Support", "help"]] },
 ];
 
+const NAV_500 = [
+  { section: "Overview", items: [["dashboard", "Dashboard", "dashboard"]] },
+  { section: "Academics", items: [["registration", "Course Registration", "book"], ["classes", "Classes", "cap"], ["timetable", "Timetable", "calendar"], ["results", "Results", "chart"]] },
+  { section: "Final Year", items: [["project", "Project / Thesis", "doc"]] },
+  { section: "Finance", items: [["finance", "Finance", "wallet"]] },
+  { section: "Campus", items: [["hostel", "Hostel", "bed"], ["library", "Library", "bookOpen"], ["clinic", "Health Centre", "heart"]] },
+  { section: "Account", items: [["profile", "Profile", "user"], ["support", "Support", "help"]] },
+];
+
 const SCREENS = {
   dashboard: { c: "Dashboard", title: "Dashboard" },
   registration: { c: "Registration", title: "Course Registration" },
@@ -48,6 +57,7 @@ const SCREENS = {
   timetable: { c: "Timetable", title: "Timetable" },
   results: { c: "Results", title: "Results" },
   siwes: { c: "Siwes", title: "SIWES / Industrial Training" },
+  project: { c: "Project", title: "Final-Year Project" },
   finance: { c: "Finance", title: "Finance" },
   fees: { c: "Fees", title: "School Fees" },
   hostel: { c: "Hostel", title: "Hostel" },
@@ -91,6 +101,7 @@ const DEFAULT_STORE = {
   feesReceipt: null,
   payments: [],
   registration: { status: "none", courses: [], units: 0 },
+  deferment: { status: "none", reason: "", details: "", note: "" },
   hostel: { status: "none" },
   submissions: {},
   campus: { loans: [], returned: {}, reservations: [], finePaid: false, appointments: [], cancelled: {}, libBooks: [], libColl: {}, libNewColl: [] },
@@ -102,7 +113,14 @@ const DEFAULT_STORE = {
     pool: {}, imported: [], audit: [],
   },
   roles: {},
+  events: [],
+  notifs: [],
+  resultIssues: [],
+  // the review chain a compiled level walks before release, configurable by ICT.
+  // EO always compiles first and releases last: these are the stages in between.
+  workflow: { stages: [{ id: "st-hod", actorRole: "hod", label: "HOD Review" }, { id: "st-dean", actorRole: "dean", label: "School Board (Dean)" }] },
   siwes: { status: "none", placement: null, logbook: [], checkins: [] },
+  project: { topic: null, topicStatus: "none", topicNote: "", chapters: {}, log: [], cleared: false, defence: null },
   session: {
     current: "2025/2026", semester: "First Semester",
     registration: true, fees: true, hostel: true, results: false,
@@ -116,6 +134,14 @@ function genRef(prefix) {
 function nowStr() {
   return new Date().toLocaleString("en-NG", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+// append a live notification; `audiences` is one or more portal keys
+// ("student", "lecturer", "adviser", …) whose bell should light up
+function pushN(s, audiences, n) {
+  const list = Array.isArray(audiences) ? audiences : [audiences];
+  const added = list.map((aud) => ({ id: genRef("NTF"), audience: aud, time: "Just now", unread: true, tone: "accent", icon: "bell", ...n }));
+  return [...added, ...(s.notifs || [])];
+}
+
 // campus namespace helper
 function cz(s) {
   return s.campus || { loans: [], returned: {}, reservations: [], finePaid: false, appointments: [], cancelled: {}, libBooks: [], libColl: {}, libNewColl: [] };
@@ -128,6 +154,21 @@ function sz(s) {
 // siwes / industrial training namespace helper
 function wz(s) {
   return s.siwes || { status: "none", placement: null, logbook: [], checkins: [] };
+}
+// write a level's pipeline stage (and optionally its position in the
+// configured review chain) into store.roles.levels
+function withLevelStage(s, key, val, reviewIndex) {
+  const roles = { ...(s.roles || {}) };
+  const lv = { ...(roles.levels || {}) };
+  lv.stage = { ...(lv.stage || {}), [key]: val };
+  if (reviewIndex !== undefined) lv.reviewIndex = { ...(lv.reviewIndex || {}), [key]: reviewIndex };
+  roles.levels = lv;
+  return roles;
+}
+
+// final-year project namespace helper
+function pz(s) {
+  return s.project || { topic: null, topicStatus: "none", topicNote: "", chapters: {}, log: [], cleared: false, defence: null };
 }
 // admissions namespace helper
 function az(s) {
@@ -177,11 +218,14 @@ function Sidebar({ route, go, nav }) {
   );
 }
 
-function Topbar({ title, dark, setDark, openDrawer, go, levelLabel }) {
+function Topbar({ store, actions, title, dark, setDark, openDrawer, go, levelLabel, nav }) {
   const { STUDENT, NOTIFICATIONS } = window.DATA;
-  const [notifs, setNotifs] = React.useState(NOTIFICATIONS);
+  const [seeds, setSeeds] = React.useState(NOTIFICATIONS);
   const [open, setOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const live = ((store && store.notifs) || []).filter((n) => n.audience === "student");
+  const notifs = [...live, ...seeds];
+  const setNotifs = () => { setSeeds((ns) => ns.map((n) => ({ ...n, unread: false }))); actions && actions.markNotifsRead("student"); };
   const unread = notifs.filter((n) => n.unread).length;
   React.useEffect(() => {
     const h = (e) => {
@@ -192,23 +236,23 @@ function Topbar({ title, dark, setDark, openDrawer, go, levelLabel }) {
   }, []);
   return (
     <header className="u-topbar">
-      <button className="fb-icon-btn u-menu-btn" onClick={openDrawer}><Icon name="menu" size={18} /></button>
+      <button className="fb-icon-btn u-menu-btn" onClick={openDrawer} aria-label="Open navigation"><Icon name="menu" size={18} /></button>
       <div className="u-h3 u-grow">{title}</div>
       <div className="fb-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button className="u-search fb-hide-mobile" onClick={() => setSearchOpen(true)}>
           <Icon name="search" size={15} />
           <span className="ph">Search…</span>
-          <span className="fb-kbd">⌘K</span>
+          <span className="fb-kbd">Ctrl K</span>
         </button>
         <button className="fb-icon-btn fb-show-mobile" onClick={() => setSearchOpen(true)} aria-label="Search"><Icon name="search" size={18} /></button>
-        <IconBtn name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} />
-        <button className="fb-icon-btn" style={{ position: "relative" }} onClick={() => setOpen((v) => !v)} aria-label="Notifications">
+        <IconBtn className="u-theme-btn" name={dark ? "sun" : "moon"} onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"} />
+        <button className="fb-icon-btn u-notif-btn" style={{ position: "relative" }} onClick={() => setOpen((v) => !v)} aria-label={unread > 0 ? "Notifications, " + unread + " unread" : "Notifications"}>
           <Icon name="bell" size={18} />
           {unread > 0 && <span style={{ position: "absolute", top: 3, right: 3, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 99, background: "var(--danger)", color: "#fff", fontSize: 9.5, fontWeight: 700, display: "grid", placeItems: "center", border: "1.5px solid var(--bg-elev)" }}>{unread}</span>}
         </button>
-        {open && <NotificationsPanel items={notifs} onClose={() => setOpen(false)} onReadAll={() => setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })))} />}
-        <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} go={go} />
-        <div className="u-row" style={{ gap: 8, cursor: "pointer", paddingLeft: 4 }} onClick={() => go("profile")}>
+        {open && <NotificationsPanel items={notifs} onClose={() => setOpen(false)} onReadAll={setNotifs} />}
+        <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} go={go} nav={nav} withEntities />
+        <div className="u-row u-topbar-profile" style={{ gap: 8, cursor: "pointer", paddingLeft: 4 }} onClick={() => go("profile")}>
           <Avatar initials={STUDENT.initials} size={30} />
           <div className="fb-hide-mobile" style={{ lineHeight: 1.1 }}>
             <div style={{ fontWeight: 500, fontSize: 13 }}>{STUDENT.first}</div>
@@ -220,10 +264,10 @@ function Topbar({ title, dark, setDark, openDrawer, go, levelLabel }) {
   );
 }
 
-function Portal({ store, actions, dark, setDark, onLogout, level400, route: routeFromUrl, onRouteChange }) {
+function Portal({ store, actions, dark, setDark, onLogout, levelMode, route: routeFromUrl, onRouteChange }) {
   const [route, setRoute] = React.useState(() => routeFromUrl || localStorage.getItem("futech.route") || "dashboard");
   const [drawer, setDrawer] = React.useState(false);
-  const nav = level400 ? NAV_400 : NAV;
+  const nav = levelMode === "500" ? NAV_500 : levelMode === "400" ? NAV_400 : NAV;
   React.useEffect(() => {
     if (routeFromUrl && SCREENS[routeFromUrl] && routeFromUrl !== route) setRoute(routeFromUrl);
   }, [routeFromUrl, route]);
@@ -255,13 +299,32 @@ function Portal({ store, actions, dark, setDark, onLogout, level400, route: rout
       </div>
 
       <div className="u-main">
-        <Topbar title={SCREENS[validRoute].title} dark={dark} setDark={setDark} openDrawer={() => setDrawer(true)} go={go} levelLabel={level400 ? "400 Level" : undefined} />
+        <Topbar store={store} actions={actions} title={SCREENS[validRoute].title} dark={dark} setDark={setDark} openDrawer={() => setDrawer(true)} go={go} nav={nav} levelLabel={levelMode === "500" ? "500 Level" : levelMode === "400" ? "400 Level" : undefined} />
         <div style={{ flex: 1 }}>
           <Cmp store={store} actions={actions} go={go} />
         </div>
       </div>
     </div>
   );
+}
+
+/* catches render crashes so a broken screen shows an error card instead of a blank page */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", padding: 24 }}>
+        <div className="fb-card u-pad" style={{ maxWidth: 440, textAlign: "center" }}>
+          <div className="u-h2" style={{ marginBottom: 8 }}>Something went wrong</div>
+          <div className="u-muted" style={{ fontSize: 13.5, marginBottom: 6 }}>This screen hit an error. You can go back to the dashboard: your demo progress is saved.</div>
+          <div className="u-meta fb-mono" style={{ marginBottom: 14 }}>{String(this.state.error && this.state.error.message || this.state.error)}</div>
+          <button className="fb-btn fb-btn--accent" onClick={() => { this.setState({ error: null }); window.history.pushState(null, "", "/"); window.dispatchEvent(new Event("futech:navigation")); }}>Back to home</button>
+        </div>
+      </div>
+    );
+  }
 }
 
 const ACCENT_MAP = { "#5a1a8a": "crest", "#2c7a57": "green", "#3a5fb0": "blue", "#9a6a1a": "amber" };
@@ -317,11 +380,150 @@ export default function App() {
   React.useEffect(() => { localStorage.setItem("futech.store", JSON.stringify(store)); }, [store]);
 
   const actions = React.useMemo(() => ({
-    payFees: (method) => setStore((s) => ({ ...s, feesPaid: true, feesReceipt: { ref: genRef("PAY"), date: nowStr(), method: { card: "Debit card", transfer: "Bank transfer", ussd: "USSD" }[method] || "Card" } })),
-    payCharge: (p) => setStore((s) => ({ ...s, payments: [{ id: genRef("PAY"), ref: genRef("PAY"), date: nowStr(), ...p }, ...(s.payments || [])] })),
-    submitRegistration: (courses, units) => setStore((s) => ({ ...s, registration: { status: "pending", courses, units } })),
-    approveRegistration: () => setStore((s) => ({ ...s, registration: { ...s.registration, status: "approved" } })),
-    allocateHostel: (a) => setStore((s) => ({ ...s, hostel: { status: "allocated", ...a, ref: genRef("HST"), date: nowStr(), method: a.method || "Debit card" } })),
+    payFees: (method) => setStore((s) => ({ ...s, feesPaid: true, feesReceipt: { ref: genRef("PAY"), date: nowStr(), method: { card: "Debit card", transfer: "Bank transfer", ussd: "USSD" }[method] || "Card" } , notifs: pushN(s, "student", { icon: "wallet", tone: "success", title: "School fees confirmed", body: "Your 2025/2026 payment was received. Course registration and hostel application are now unlocked." }) })),
+    payCharge: (p) => setStore((s) => ({ ...s, payments: [{ id: genRef("PAY"), ref: genRef("PAY"), date: nowStr(), ...p }, ...(s.payments || [])], notifs: pushN(s, "student", { icon: "wallet", tone: "success", title: "Payment received: " + p.label, body: "Your payment of " + window.DATA.fmt(p.amount) + " was successful. Receipt available under Finance." }) })),
+    submitRegistration: (courses, units) => setStore((s) => ({ ...s, registration: { status: "pending", courses, units }, notifs: pushN(s, "adviser", { icon: "book", tone: "warning", title: "New course form submitted", body: window.DATA.STUDENT.name + " submitted " + courses.length + " courses (" + units + " units) for your approval." }) })),
+    approveRegistration: () => setStore((s) => ({ ...s, registration: { ...s.registration, status: "approved" }, notifs: pushN(s, "student", { icon: "check", tone: "success", title: "Course registration approved", body: "Dr. C. Madu approved your course form. Your class spaces are now open." }) })),
+    queryRegistration: (note) => setStore((s) => ({ ...s, registration: { ...s.registration, status: "query", note }, notifs: pushN(s, "student", { icon: "info", tone: "warning", title: "Course registration returned", body: "Dr. C. Madu sent your course form back: " + note }) })),
+    allocateHostel: (a) => setStore((s) => ({ ...s, hostel: { status: "allocated", ...a, ref: genRef("HST"), date: nowStr(), method: a.method || "Debit card" }, notifs: pushN(s, "student", { icon: "bed", tone: "success", title: "Bed space allocated", body: a.hostelName + " · Block " + a.block + " · Room " + a.room + " · " + a.bedLabel + ". Print your slip from the Hostel page." }) })),
+    // ---- deferment: the one "student case" type a student actually requests
+    // themselves (Absconded/Suspended/DEX/Teaching Practice stay department-raised).
+    // Approving writes into the same levels/case slot HOD & Dean's broadsheet
+    // review already reads, so it flows through the existing case mechanism. ----
+    requestDeferment: (reason, details) => setStore((s) => ({
+      ...s, deferment: { status: "pending", reason, details, note: "" },
+      notifs: pushN(s, "adviser", { icon: "info", tone: "warning", title: "Deferment requested", body: window.DATA.STUDENT.name + " requested a deferment (" + reason + "). Review under Advisees." }),
+    })),
+    decideDeferment: (approve, note) => setStore((s) => {
+      const base = { ...s, deferment: { ...(s.deferment || {}), status: approve ? "approved" : "declined", note: note || "" } };
+      if (!approve) {
+        return { ...base, notifs: pushN(s, "student", { icon: "info", tone: "warning", title: "Deferment request declined", body: "Your level adviser declined your deferment request" + (note ? ": " + note : ".") }) };
+      }
+      const roles = { ...(base.roles || {}) };
+      const levels = { ...(roles.levels || {}) };
+      const cases = { ...(levels.case || {}) };
+      cases["CSC-300L|" + window.DATA.STUDENT.matric] = { type: "Deferment", status: "approved" };
+      levels.case = cases; roles.levels = levels;
+      return {
+        ...base, roles,
+        notifs: pushN(base, "student", { icon: "check", tone: "success", title: "Deferment approved", body: "Your level adviser approved your deferment. This semester is excluded from your GPA." }),
+      };
+    }),
+    // ---- level result pipeline: EO approves each course sheet and compiles the
+    // level → it walks the configured review chain (ICT-editable) → Senate stamp
+    // → Exams releases. ----
+    setReleaseMode: (mode) => setStore((s) => ({ ...s, session: { ...sz(s), releaseMode: mode } })),
+    setWorkflowStages: (stages) => setStore((s) => ({ ...s, workflow: { ...(s.workflow || {}), stages } })),
+    // EO decides one course sheet. If that was the last pending sheet for the
+    // live 300L level, it compiles automatically: no separate "compile" step :
+    // and hands off to the first configured review stage (or straight to
+    // "ready" if none are configured). The EO can always view the level
+    // result regardless of stage; nothing here restricts that.
+    eoDecideSheet: (code, level, decision, note) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const eo = { ...(roles.eo || {}) };
+      eo.result = { ...(eo.result || {}), [code]: decision };
+      if (note) eo.note = { ...(eo.note || {}), [code]: note };
+      roles.eo = eo;
+      let out = {
+        ...s, roles,
+        notifs: decision === "query"
+          ? pushN(s, "lecturer", { icon: "info", tone: "warning", title: "Course sheet returned: " + code, body: "Exams & Records sent your " + code + " results back: " + note })
+          : (s.notifs || []),
+      };
+      // the level itself does not advance automatically: it just becomes
+      // eligible; Exams & Records still has to choose to push it for scrutiny
+      // (see eoPresentLevel) so nothing reaches HOD/Dean without that decision
+      if (decision === "approved" && level === "300L") {
+        const HOD_RESULTS = window.ROLE_DATA.HOD_RESULTS;
+        const levelSheets = HOD_RESULTS.filter((r) => r.level === "300L");
+        const allApproved = levelSheets.every((r) => (eo.result[r.code] || r.baseStatus) === "approved");
+        if (allApproved) {
+          out = { ...out, notifs: pushN(out, "exams", { icon: "check", tone: "success", title: "Level ready to compile", body: "Computer Science 300L: every course sheet is now approved. Push it for scrutiny from Level Results when you're ready." }) };
+        }
+      }
+      return out;
+    }),
+    // Exams & Records explicitly pushes a fully-approved level for scrutiny :
+    // this is the moment HOD/Dean/whoever's first in the workflow first gets
+    // to see it. Nothing before this point is visible outside Exams & Records.
+    eoPresentLevel: (key, label) => setStore((s) => {
+      const stages = (s.workflow && s.workflow.stages) || [];
+      return stages.length === 0
+        ? { ...s, roles: withLevelStage(s, key, "ready", 0), notifs: pushN(s, "exams", { icon: "check", tone: "success", title: "Level compiled", body: label + " compiled: no review stages configured, ready to release." }) }
+        : { ...s, roles: withLevelStage(s, key, "reviewing", 0), notifs: pushN(s, [stages[0].actorRole], { icon: "chart", tone: "warning", title: "Your review: " + label, body: label + " has been compiled and pushed for scrutiny by Exams & Records. Now awaiting " + stages[0].label + "." }) };
+    }),
+    reviewStageDecide: (key, label, approve, note) => setStore((s) => {
+      const stages = (s.workflow && s.workflow.stages) || [];
+      const idx = ((s.roles || {}).levels && (s.roles.levels.reviewIndex || {})[key]) || 0;
+      if (!approve) {
+        const roles = withLevelStage(s, key, "compiling", 0);
+        const levels = { ...(roles.levels || {}) };
+        if (note) levels.reviewNote = { ...(levels.reviewNote || {}), [key]: note };
+        return {
+          ...s, roles: { ...roles, levels },
+          notifs: pushN(s, "exams", { icon: "info", tone: "warning", title: "Level results returned", body: label + " was returned by " + (stages[idx] ? stages[idx].label : "a reviewer") + (note ? ": " + note : ".") }),
+        };
+      }
+      const next = idx + 1;
+      if (next >= stages.length) {
+        return {
+          ...s, roles: withLevelStage(s, key, "ready", next),
+          notifs: pushN(s, "exams", { icon: "check", tone: "success", title: "Level results Senate-approved", body: label + " has cleared every review stage and been ratified. It is ready to release." }),
+        };
+      }
+      return {
+        ...s, roles: withLevelStage(s, key, "reviewing", next),
+        notifs: pushN(s, stages[next].actorRole === "dean" ? ["dean"] : [stages[next].actorRole], { icon: "chart", tone: "warning", title: "Your review: " + label, body: stages[idx].label + " approved. Now awaiting " + stages[next].label + "." }),
+      };
+    }),
+    examsPublishLevel: (key, label) => setStore((s) => ({
+      ...s, roles: withLevelStage(s, key, "published"),
+      notifs: key === "CSC-300L"
+        ? pushN(s, "student", { icon: "chart", tone: "accent", title: "Semester results released", body: "Your 300L First Semester results are now available on the Results page." })
+        : (s.notifs || []),
+    })),
+    // per-course release, when ICT policy is set to "per course"
+    examsPublishCourse: (code, isDemoLevel) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const ex = { ...(roles.exams || {}) };
+      ex.pubc = { ...(ex.pubc || {}), [code]: true };
+      roles.exams = ex;
+      return {
+        ...s, roles,
+        notifs: isDemoLevel
+          ? pushN(s, "student", { icon: "chart", tone: "accent", title: "Result released: " + code, body: "Your " + code + " result is out. Your GPA stays provisional until the full level is released." })
+          : (s.notifs || []),
+      };
+    }),
+    // EO: course catalogue, result issues, adviser unit limits
+    examsCreateCourse: (c) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const ex = { ...(roles.exams || {}) };
+      ex.courses = [{ ...c }, ...(ex.courses || [])];
+      roles.exams = ex;
+      return { ...s, roles };
+    }),
+    raiseResultIssue: (rec) => setStore((s) => ({
+      ...s,
+      resultIssues: [{ id: genRef("RIS"), at: nowStr(), status: "open", student: window.DATA.STUDENT.name, matric: window.DATA.STUDENT.matric, ...rec }, ...(s.resultIssues || [])],
+      notifs: pushN(s, ["exams", "lecturer"], { icon: "info", tone: "warning", title: "Result issue raised: " + rec.code, body: rec.category + ": " + rec.text }),
+    })),
+    resultIssueStatus: (id, status, resolution) => setStore((s) => ({
+      ...s,
+      resultIssues: (s.resultIssues || []).map((i) => i.id === id ? { ...i, status, resolution: resolution || i.resolution } : i),
+      notifs: status === "resolved"
+        ? pushN(s, "student", { icon: "check", tone: "success", title: "Result issue resolved", body: resolution || "Your result complaint has been resolved by Exams & Records." })
+        : (s.notifs || []),
+    })),
+    adviserSetUnits: (min, max) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const adv = { ...(roles.adviser || {}) };
+      adv.units = { min, max };
+      roles.adviser = adv;
+      return { ...s, roles, notifs: pushN(s, "student", { icon: "book", title: "Registration limits updated", body: "Your level adviser set the unit load to " + min + "\u2013" + max + " units this semester." }) };
+    }),
+    markNotifsRead: (audience) => setStore((s) => ({ ...s, notifs: (s.notifs || []).map((n) => n.audience === audience ? { ...n, unread: false } : n) })),
     submitAssignment: (id, sub) => setStore((s) => ({ ...s, submissions: { ...(s.submissions || {}), [id]: sub } })),
     // staff actions
     setScore: (code, matric, field, value) => setStore((s) => {
@@ -329,8 +531,17 @@ export default function App() {
       const k = code + ":" + matric; scores[k] = { ...(scores[k] || {}), [field]: value };
       return { ...s, staff: { ...staff, scores } };
     }),
-    submitResults: (code) => setStore((s) => ({ ...s, staff: { ...s.staff, results: { ...(s.staff && s.staff.results), [code]: "submitted" } } })),
-    approveResults: (code) => setStore((s) => ({ ...s, staff: { ...s.staff, results: { ...(s.staff && s.staff.results), [code]: "approved" } } })),
+    submitResults: (code) => setStore((s) => {
+      const out = { ...s, staff: { ...s.staff, results: { ...(s.staff && s.staff.results), [code]: "submitted" } } };
+      // resubmitting after a query puts the sheet back in the EO's queue as pending
+      const seed = window.ROLE_DATA.HOD_RESULTS.find((r) => r.code === code);
+      if (!seed) return out;
+      const roles = { ...(out.roles || {}) };
+      const eo = { ...(roles.eo || {}) };
+      eo.result = { ...(eo.result || {}), [code]: "pending" };
+      roles.eo = eo;
+      return { ...out, roles };
+    }),
     gradeSubmission: (aid, matric, grade) => setStore((s) => ({ ...s, staff: { ...s.staff, grades: { ...(s.staff && s.staff.grades), [aid + ":" + matric]: grade } } })),
     addFeedback: (aid, matric, text, page) => setStore((s) => { const fb = { ...(s.staff && s.staff.feedback) }; const k = aid + ":" + matric; fb[k] = [...(fb[k] || []), { id: genRef("FB"), text, page, at: nowStr() }]; return { ...s, staff: { ...s.staff, feedback: fb } }; }),
     removeFeedback: (aid, matric, id) => setStore((s) => { const fb = { ...(s.staff && s.staff.feedback) }; const k = aid + ":" + matric; fb[k] = (fb[k] || []).filter((c) => c.id !== id); return { ...s, staff: { ...s.staff, feedback: fb } }; }),
@@ -343,6 +554,21 @@ export default function App() {
       const r = { ...(roles[role] || {}) };
       const m = { ...(r[key] || {}) };
       m[id] = value; r[key] = m; roles[role] = r;
+      return { ...s, roles };
+    }),
+    // ---- ICT admin: provision users & sessions ----
+    ictCreateUser: (u) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const ict = { ...(roles.ict || {}) };
+      ict.users = [{ id: "usr-new-" + Date.now(), last: "just now", baseStatus: "active", ...u }, ...(ict.users || [])];
+      roles.ict = ict;
+      return { ...s, roles };
+    }),
+    ictCreateSession: (name) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const ict = { ...(roles.ict || {}) };
+      ict.sessions = [...(ict.sessions || []), { name, state: "Draft", reg: "Closed", fees: "Closed" }];
+      roles.ict = ict;
       return { ...s, roles };
     }),
     // ---- semester lifecycle (registrar / ICT controls) ----
@@ -359,6 +585,50 @@ export default function App() {
       advice[adviseeId] = perStudent; r.advice = advice; roles.adviser = r;
       return { ...s, roles };
     }),
+    // ---- class rep (store.roles.rep.*) ----
+    repPost: (code, body) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const rep = { ...(roles.rep || {}) };
+      const posts = { ...(rep.posts || {}) };
+      posts[code] = [{ id: genRef("RP"), body, at: nowStr() }, ...(posts[code] || [])];
+      rep.posts = posts; roles.rep = rep;
+      return { ...s, roles };
+    }),
+    repRemind: (aid, code, title, due) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const rep = { ...(roles.rep || {}) };
+      const posts = { ...(rep.posts || {}) };
+      posts[code] = [{ id: genRef("RP"), body: "Reminder from your class rep: “" + title + "” is due " + due + ". Submit on the Assignments tab.", at: nowStr() }, ...(posts[code] || [])];
+      rep.posts = posts;
+      rep.reminded = { ...(rep.reminded || {}), [aid]: true };
+      roles.rep = rep;
+      return { ...s, roles };
+    }),
+    repReport: (rec) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const rep = { ...(roles.rep || {}) };
+      rep.issues = [{ id: genRef("ISS"), at: nowStr(), status: "open", ...rec }, ...(rep.issues || [])];
+      roles.rep = rep;
+      return { ...s, roles, notifs: pushN(s, "adviser", { icon: "info", tone: "warning", title: "Class rep reported an issue", body: rec.code + " · " + rec.category + ": " + rec.text }) };
+    }),
+    resolveRepIssue: (id) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const rep = { ...(roles.rep || {}) };
+      rep.issues = (rep.issues || []).map((i) => i.id === id ? { ...i, status: "resolved" } : i);
+      roles.rep = rep;
+      return { ...s, roles };
+    }),
+    // ---- dean/hod scheduled meetings & events ----
+    scheduleEvent: (ev) => setStore((s) => {
+      const audiences = ev.audience === "both" ? ["student", "lecturer"] : ev.audience === "students" ? ["student"] : ["lecturer"];
+      return {
+        ...s,
+        events: [{ id: genRef("EVT"), createdAt: nowStr(), ...ev }, ...(s.events || [])],
+        notifs: pushN(s, audiences, { icon: "calendar", title: "New on your schedule: " + ev.title, body: ev.day + " " + ev.start + " · " + ev.venue + " · scheduled by " + ev.by + (ev.clashes && ev.clashes.length ? ". Note: clashes with " + ev.clashes.map((c) => c.code).join(", ") + "." : ".") }),
+      };
+    }),
+    cancelEvent: (id) => setStore((s) => ({ ...s, events: (s.events || []).filter((e) => e.id !== id) })),
+    assignInvigilator: (id, name) => setStore((s) => ({ ...s, events: (s.events || []).map((e) => e.id === id ? { ...e, invigilator: name } : e) })),
     // mini-lecturer hat: class notes posted per course code
     postClassNote: (code, text) => setStore((s) => {
       const roles = { ...(s.roles || {}) };
@@ -368,6 +638,42 @@ export default function App() {
       mini.notes = notes; roles.mini = mini;
       return { ...s, roles };
     }),
+    // ---- final-year project (400L): topic → chapters → clearance → defence ----
+    projPropose: (title, abstract) => setStore((s) => ({
+      ...s, project: { ...pz(s), topic: { title, abstract }, topicStatus: "pending", topicNote: "" },
+      notifs: pushN(s, "lecturer", { icon: "doc", tone: "warning", title: "Project topic proposed", body: window.DATA.STUDENT.name + " proposed: “" + title + "”. Review it under Supervision." }),
+    })),
+    projTopicDecide: (approve, note) => setStore((s) => ({
+      ...s, project: { ...pz(s), topicStatus: approve ? "approved" : "returned", topicNote: note || "" },
+      notifs: pushN(s, "student", approve
+        ? { icon: "check", tone: "success", title: "Project topic approved", body: "Your supervisor approved your topic. You can now submit Chapter 1." }
+        : { icon: "info", tone: "warning", title: "Project topic returned", body: (note ? "“" + note + "”: " : "") + "Revise your topic and propose again." }),
+    })),
+    projSubmitChapter: (n, fileName, note) => setStore((s) => ({
+      ...s, project: { ...pz(s), chapters: { ...pz(s).chapters, [n]: { status: "submitted", fileName, note: note || "", at: nowStr(), feedback: "" } } },
+      notifs: pushN(s, "lecturer", { icon: "doc", tone: "warning", title: "Chapter " + n + " submitted", body: window.DATA.STUDENT.name + " submitted Chapter " + n + " for review." }),
+    })),
+    projChapterDecide: (n, approve, feedback) => setStore((s) => ({
+      ...s, project: { ...pz(s), chapters: { ...pz(s).chapters, [n]: { ...(pz(s).chapters[n] || {}), status: approve ? "approved" : "revise", feedback: feedback || "", decidedAt: nowStr() } } },
+      notifs: pushN(s, "student", approve
+        ? { icon: "check", tone: "success", title: "Chapter " + n + " approved", body: feedback ? "Supervisor: “" + feedback + "”" : "Move on to the next chapter." }
+        : { icon: "info", tone: "warning", title: "Chapter " + n + " needs revision", body: feedback ? "Supervisor: “" + feedback + "”" : "See your supervisor's comments and resubmit." }),
+    })),
+    projLogAdd: (summary) => setStore((s) => ({
+      ...s, project: { ...pz(s), log: [{ id: genRef("MTG"), at: nowStr(), summary, status: "pending" }, ...pz(s).log] },
+      notifs: pushN(s, "lecturer", { icon: "calendar", title: "Supervision meeting logged", body: window.DATA.STUDENT.name + " logged a consultation for your sign-off." }),
+    })),
+    projLogSign: (id) => setStore((s) => ({
+      ...s, project: { ...pz(s), log: pz(s).log.map((l) => l.id === id ? { ...l, status: "signed" } : l) },
+    })),
+    projClearDefence: () => setStore((s) => ({
+      ...s, project: { ...pz(s), cleared: true },
+      notifs: pushN(s, "student", { icon: "cap", tone: "success", title: "Cleared for defence", body: "Your supervisor has cleared your project. The department will schedule your defence." }),
+    })),
+    projScheduleDefence: (d) => setStore((s) => ({
+      ...s, project: { ...pz(s), defence: { ...d, at: nowStr() } },
+      notifs: pushN(s, ["student", "lecturer"], { icon: "calendar", tone: "accent", title: "Project defence scheduled", body: d.day + " " + d.start + " · " + d.venue + " · Panel: " + d.panel }),
+    })),
     // siwes / industrial training (400L)
     siwesPropose: (placement) => setStore((s) => ({ ...s, siwes: { ...wz(s), status: "proposed", placement } })),
     siwesDecide: (approve, note) => setStore((s) => { const w = wz(s); return { ...s, siwes: { ...w, status: approve ? "approved" : "rejected", deptNote: note || "" } }; }),
@@ -434,7 +740,7 @@ export default function App() {
     setView(rr === "student" ? "portal" : "role");
     writePrototypeLocation(rr === "student" ? { view: "portal", route: localStorage.getItem("futech.route") || "dashboard" } : { view: "role", role: rr });
   };
-  const logout = () => { localStorage.setItem("futech.authed", "0"); setView("home"); writePrototypeLocation({ view: "home" }); };
+  const logout = () => { localStorage.setItem("futech.authed", "0"); setView("login"); writePrototypeLocation({ view: "login" }); };
 
   // expose for tweaks panel
   React.useEffect(() => { window.__futechReset = actions.reset; window.__futechSetDark = setDark; }, [actions]);
@@ -443,12 +749,12 @@ export default function App() {
   if (view === "home") body = <PublicHome go={go} dark={dark} setDark={setDark} />;
   else if (view === "login") body = <Login go={go} onLogin={login} dark={dark} setDark={setDark} />;
   else if (view === "admissions") body = <CandidateApp store={store} actions={actions} dark={dark} setDark={setDark} onExit={() => writePrototypeLocation({ view: "home" })} route={location.route} onRouteChange={(route) => writePrototypeLocation({ view: "admissions", route })} />;
-  else if (role === "student") body = <Portal store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} level400={t.studentLevel === "400"} route={location.view === "portal" ? location.route : undefined} onRouteChange={(route) => writePrototypeLocation({ view: "portal", route })} />;
+  else if (role === "student") body = <Portal store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} levelMode={t.studentLevel} route={location.view === "portal" ? location.route : undefined} onRouteChange={(route) => writePrototypeLocation({ view: "portal", route })} />;
   else body = <RolePortal role={role} store={store} actions={actions} dark={dark} setDark={setDark} onLogout={logout} route={location.view === "role" ? location.route : undefined} onRouteChange={(route) => writePrototypeLocation({ view: "role", role, route })} />;
 
   return (
     <div className="fb-app" data-theme={dark ? "dark" : "light"} data-accent={ACCENT_MAP[t.accent] || "crest"} data-density={t.density} style={{ minHeight: "100vh", "--font-sans": FONT_STACKS[t.font] || FONT_STACKS.Geist }}>
-      {body}
+      <ErrorBoundary>{body}</ErrorBoundary>
       <DetailLayer />
       <TweaksPanel title="Tweaks">
         <TweakSection label="Theme" />
@@ -464,7 +770,7 @@ export default function App() {
           options={["compact", "comfortable", "spacious"]}
           onChange={(v) => setTweak("density", v)} />
         <TweakRadio label="Student level (demo)" value={t.studentLevel}
-          options={["300", "400"]}
+          options={["300", "400", "500"]}
           onChange={(v) => setTweak("studentLevel", v)} />
         <TweakSection label="Demo" />
         <TweakButton label="Reset demo progress" onClick={() => { window.__futechReset && window.__futechReset(); }} />

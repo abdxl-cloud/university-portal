@@ -3,33 +3,29 @@ import { createPortal } from "react-dom";
 const { Icon, Tag } = window;
 /* Global command-palette search for the student portal */
 
-function buildSearchIndex() {
-  const D = window.DATA || {};
-  const C = window.CAMPUS_DATA || {};
+// Builds the search index from the sidebar nav actually assigned to this
+// user (student NAV/NAV_400/NAV_500, or a role's merged-hats nav) so results
+// never surface pages the signed-in user/role doesn't have.
+function buildSearchIndex(nav, withEntities) {
   const items = [];
-  [
-    ["dashboard", "Dashboard", "dashboard", "home overview"],
-    ["finance", "Finance", "wallet", "fees payments money receipts history"],
-    ["fees", "School Fees", "wallet", "tuition invoice pay"],
-    ["registration", "Course Registration", "book", "register courses adviser units"],
-    ["classes", "Classes", "book", "lms materials assignments submissions"],
-    ["timetable", "Timetable", "calendar", "lectures exams schedule venue"],
-    ["results", "Results", "chart", "grades gpa cgpa transcript"],
-    ["hostel", "Hostel", "bed", "accommodation room allocation bed space"],
-    ["library", "Library", "bookOpen", "books catalogue loans reservations e-library"],
-    ["clinic", "Health Centre", "heart", "clinic medical appointment doctor prescription"],
-    ["profile", "Profile", "user", "bio record matric"],
-    ["support", "Support", "help", "complaint ticket help"],
-  ].forEach(([route, label, icon, kw]) => items.push({ type: "route", route, label, icon, kw, group: "Go to" }));
+  (nav || []).forEach((grp) => {
+    grp.items.forEach(([route, label, icon]) => {
+      items.push({ type: "route", route, label, icon, kw: label, group: grp.section });
+    });
+  });
 
-  (D.COURSES || []).forEach((c) => items.push({ type: "course", key: c.code, label: c.code + " · " + c.title, icon: "book", kw: c.lecturer + " " + c.venue, group: "Courses" }));
-  Object.keys(D.LECTURERS || {}).forEach((n) => items.push({ type: "lecturer", key: n, label: n, icon: "user", kw: (D.LECTURERS[n].area || "") + " lecturer", group: "Lecturers" }));
-  (C.BOOKS || []).forEach((b) => items.push({ type: "book", key: b.id, label: b.title, icon: "bookOpen", kw: b.author + " " + b.cat + " book", group: "Library" }));
+  if (withEntities) {
+    const D = window.DATA || {};
+    const C = window.CAMPUS_DATA || {};
+    (D.COURSES || []).forEach((c) => items.push({ type: "course", key: c.code, label: c.code + " · " + c.title, icon: "book", kw: c.lecturer + " " + c.venue, group: "Courses" }));
+    Object.keys(D.LECTURERS || {}).forEach((n) => items.push({ type: "lecturer", key: n, label: n, icon: "user", kw: (D.LECTURERS[n].area || "") + " lecturer", group: "Lecturers" }));
+    (C.BOOKS || []).forEach((b) => items.push({ type: "book", key: b.id, label: b.title, icon: "bookOpen", kw: b.author + " " + b.cat + " book", group: "Library" }));
+  }
   return items;
 }
 
-function CommandPalette({ open, onClose, go }) {
-  const INDEX = React.useMemo(buildSearchIndex, []);
+function CommandPalette({ open, onClose, go, nav, withEntities }) {
+  const INDEX = React.useMemo(() => buildSearchIndex(nav, withEntities), [nav, withEntities]);
   const [q, setQ] = React.useState("");
   const [sel, setSel] = React.useState(0);
   const inputRef = React.useRef(null);
@@ -42,7 +38,7 @@ function CommandPalette({ open, onClose, go }) {
   const ql = q.trim().toLowerCase();
   let results = ql
     ? INDEX.filter((it) => (it.label + " " + (it.kw || "")).toLowerCase().includes(ql))
-    : INDEX.filter((it) => it.group === "Go to");
+    : INDEX.filter((it) => it.type === "route");
   results = results.slice(0, 12);
 
   React.useEffect(() => { setSel(0); }, [q]);

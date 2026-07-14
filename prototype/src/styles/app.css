@@ -1,4 +1,4 @@
-/* FUTECH portal — app-specific layout & components */
+/* FUTECH portal: app-specific layout & components */
 
 /* clip horizontal overflow from off-canvas drawers without breaking sticky */
 html, body { overflow-x: clip; max-width: 100%; }
@@ -12,6 +12,17 @@ html, body { overflow-x: clip; max-width: 100%; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
 .fb-app { min-height: 100vh; overflow-x: clip; }
+
+/* Keep icons for navigation and icon-only controls, not content decoration. */
+.fb-app svg { display: none; }
+.fb-app .u-sidebar svg,
+.fb-app .u-nav svg,
+.fb-app .fb-drawer .fb-nav-item svg,
+.fb-app .u-topbar svg,
+.fb-app .fb-icon-btn svg,
+.fb-app .u-filelink svg,
+.fb-app .u-pub__burger svg { display: block; }
+.fb-app .u-icon { display: none; }
 
 /* ---------- generic helpers ---------- */
 .u-stack { display: flex; flex-direction: column; }
@@ -138,11 +149,35 @@ html, body { overflow-x: clip; max-width: 100%; }
 .u-seg button[data-on="true"] { background: var(--bg-elev); color: var(--fg); box-shadow: var(--shadow-sm); }
 
 /* ---------- table ---------- */
-.u-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.u-table th { text-align: left; font-weight: 500; color: var(--fg-subtle); font-size: 12px; padding: 0 14px 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-.u-table td { padding: 13px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+.u-table-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.u-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.u-table th { text-align: left; font-weight: 500; color: var(--fg-subtle); font-size: 12px; padding: 0 14px 10px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.u-table td { max-width: 320px; padding: 13px 14px; border-top: 1px solid var(--border); vertical-align: middle; overflow-wrap: anywhere; }
 .u-table tr:hover td { background: var(--bg-sunken); }
-.u-table .u-right { text-align: right; }
+.u-table .u-right { text-align: right; white-space: nowrap; }
+.u-table button, .u-table .fb-btn, .u-table .fb-tag { white-space: nowrap; }
+.u-table-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.u-table-tools { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+.u-table-search { width: min(320px, 100%); }
+.u-table-select { min-width: 150px; }
+.u-bulkbar { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 8px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--accent-border); color: var(--accent-soft-fg); font-size: 13px; }
+.u-check { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+@media (max-width: 620px) {
+  .u-table-toolbar, .u-table-tools { align-items: stretch; }
+  .u-table-tools, .u-table-search, .u-table-select { width: 100%; }
+}
 
 /* ---------- hostel ---------- */
 .u-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; }
@@ -242,6 +277,7 @@ html, body { overflow-x: clip; max-width: 100%; }
 .u-pub__links { display: flex; gap: 4px; }
 .u-pub__links a { padding: 7px 12px; border-radius: var(--r-sm); color: var(--fg-muted); font-size: 13.5px; font-weight: 500; cursor: pointer; text-decoration: none; }
 .u-pub__links a:hover { background: var(--bg-muted); color: var(--fg); }
+.u-pub__burger { display: none; }
 
 .u-hero {
   position: relative; overflow: hidden;
@@ -311,6 +347,7 @@ html, body { overflow-x: clip; max-width: 100%; }
   .u-tt__ev { padding: 5px; }
   .u-page-head { flex-direction: column; }
   .u-stat-strip { grid-template-columns: 1fr 1fr; }
+  .u-topbar-profile, .u-theme-btn { display: none !important; }
 }
 
 /* mobile drawer reuse fb-drawer */
@@ -325,14 +362,13 @@ html, body { overflow-x: clip; max-width: 100%; }
 .fb-nav-item:hover svg { color: var(--fg); }
 .fb-nav-item[data-active="true"] svg { color: var(--accent); }
 
-/* crisper nav icons — thicker stroke + darker tone than the label */
+/* crisper nav icons: thicker stroke + darker tone than the label */
 .fb-nav-item svg { stroke-width: 2; color: oklch(from var(--fg-muted) calc(l - 0.14) c h); flex-shrink: 0; }
 .fb-nav-item:hover svg, .fb-nav-item[data-active="true"] svg { color: var(--accent); }
 [data-theme="dark"] .fb-nav-item svg { color: oklch(from var(--fg-muted) calc(l + 0.12) c h); }
 .u-topbar .fb-icon-btn svg { stroke-width: 2; }
 
-/* public site hamburger (mobile only) */
-.u-pub__burger { display: none; }
+/* public site hamburger (mobile only): base rule lives with .u-pub__links above the responsive section */
 .u-pub__draw-links { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; }
 .u-pub__draw-links a {
   padding: 13px 12px; border-radius: var(--r-md); color: var(--fg);
@@ -342,8 +378,9 @@ html, body { overflow-x: clip; max-width: 100%; }
 
 /* topbar title never crowds the actions */
 .u-topbar > .u-h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.u-topbar > div:last-child { flex-shrink: 0; }
 
-/* topbar search trigger — looks like a real field, vertically centred */
+/* topbar search trigger: looks like a real field, vertically centred */
 .u-search {
   display: flex; align-items: center; gap: 8px;
   height: 36px; width: 230px; padding: 0 8px 0 11px;
@@ -524,6 +561,7 @@ html, body { overflow-x: clip; max-width: 100%; }
 .u-pager__info { font-size: 12.5px; color: var(--fg-subtle); font-variant-numeric: tabular-nums; }
 .u-pager__btns { display: flex; align-items: center; gap: 4px; }
 .u-pager__pg { min-width: 32px; height: 32px; padding: 0 8px; display: inline-grid; place-items: center; border: 1px solid var(--border); background: var(--bg-elev); border-radius: var(--r-sm); font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--fg-muted); cursor: pointer; }
+.u-pager__text { min-width: 68px; }
 .u-pager__pg:hover:not(:disabled) { border-color: var(--accent-border); color: var(--fg); }
 .u-pager__pg[data-on="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
 .u-pager__pg:disabled { opacity: 0.4; cursor: not-allowed; }
