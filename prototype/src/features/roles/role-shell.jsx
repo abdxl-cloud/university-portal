@@ -159,10 +159,10 @@ function buildRoleConfig() {
           key: "hod", label: "Head of Department", brand: "HOD Portal",
           nav: [
             { section: "Overview", items: [["hod-dash", "Dashboard", "dashboard"]] },
-            { section: "Department", items: [["hod-results", "Result Review", "chart"], ["hod-assign", "Course Assignments", "book"], ["hod-advisers", "Level Advisers", "user"], ["hod-siwes", "SIWES / IT Supervision", "building"], ["hod-projects", "Project Supervision", "cap"], ["hod-schedule", "Schedule", "calendar"], ["hod-staff", "Staff", "user"]] },
+            { section: "Department", items: [["hod-results", "Result Review", "chart"], ["hod-cases", "Student Cases", "info"], ["hod-assign", "Course Assignments", "book"], ["hod-advisers", "Level Advisers", "user"], ["hod-siwes", "SIWES / IT Supervision", "building"], ["hod-projects", "Project Supervision", "cap"], ["hod-schedule", "Schedule", "calendar"], ["hod-staff", "Staff", "user"]] },
             { section: "Account", items: [["hod-profile", "Profile", "user"]] },
           ],
-          screens: { "hod-dash": { c: "HodDashboard", title: "Dashboard" }, "hod-results": { c: "LevelReviewQueue", title: "Result Review" }, "hod-assign": { c: "HodAssignments", title: "Course Assignments" }, "hod-advisers": { c: "HodAdvisers", title: "Level Advisers" }, "hod-siwes": { c: "HodSiwes", title: "SIWES / IT Supervision" }, "hod-projects": { c: "HodProjects", title: "Project Supervision" }, "hod-schedule": { c: "HodSchedule", title: "Schedule" }, "hod-staff": { c: "HodStaff", title: "Department Staff" }, "hod-profile": { c: "RoleProfileScreen", title: "Profile" } },
+          screens: { "hod-dash": { c: "HodDashboard", title: "Dashboard" }, "hod-results": { c: "LevelReviewQueue", title: "Result Review" }, "hod-cases": { c: "HodStudentCases", title: "Student Cases" }, "hod-assign": { c: "HodAssignments", title: "Course Assignments" }, "hod-advisers": { c: "HodAdvisers", title: "Level Advisers" }, "hod-siwes": { c: "HodSiwes", title: "SIWES / IT Supervision" }, "hod-projects": { c: "HodProjects", title: "Project Supervision" }, "hod-schedule": { c: "HodSchedule", title: "Schedule" }, "hod-staff": { c: "HodStaff", title: "Department Staff" }, "hod-profile": { c: "RoleProfileScreen", title: "Profile" } },
         },
         {
           key: "lecturer", label: "Lecturer", brand: "Staff Portal",
@@ -177,10 +177,10 @@ function buildRoleConfig() {
       label: "Dean of Faculty", brand: "Dean's Portal", person: RD.PEOPLE.dean, notifications: RD.notif("dean"), facultyId: "computing",
       nav: [
         { section: "Overview", items: [["dean-dash", "Dashboard", "dashboard"]] },
-        { section: "Faculty", items: [["dean-depts", "Departments", "building"], ["dean-results", "School Board Approvals", "chart"], ["dean-schedule", "Schedule", "calendar"], ["dean-admissions", "Admissions", "doc"]] },
+        { section: "Faculty", items: [["dean-depts", "Departments", "building"], ["dean-results", "School Board Approvals", "chart"], ["dean-cases", "Student Cases", "info"], ["dean-schedule", "Schedule", "calendar"], ["dean-admissions", "Admissions", "doc"]] },
         { section: "Account", items: [["dean-profile", "Profile", "user"]] },
       ],
-      screens: { "dean-dash": { c: "DeanDashboard", title: "Dashboard" }, "dean-depts": { c: "DeanDepts", title: "Departments" }, "dean-results": { c: "LevelReviewQueue", title: "School Board Approvals" }, "dean-schedule": { c: "DeanSchedule", title: "Schedule" }, "dean-admissions": { c: "DeanAdmissions", title: "Admissions" }, "dean-profile": { c: "RoleProfileScreen", title: "Profile" } },
+      screens: { "dean-dash": { c: "DeanDashboard", title: "Dashboard" }, "dean-depts": { c: "DeanDepts", title: "Departments" }, "dean-results": { c: "LevelReviewQueue", title: "School Board Approvals" }, "dean-cases": { c: "DeanStudentCases", title: "Student Cases" }, "dean-schedule": { c: "DeanSchedule", title: "Schedule" }, "dean-admissions": { c: "DeanAdmissions", title: "Admissions" }, "dean-profile": { c: "RoleProfileScreen", title: "Profile" } },
     },
     exams: {
       label: "Exams & Records", brand: "Exams & Records", person: RD.PEOPLE.exams, notifications: RD.notif("exams"),

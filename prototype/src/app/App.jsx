@@ -390,8 +390,8 @@ export default function App() {
     // themselves (Absconded/Suspended/DEX/Teaching Practice stay department-raised).
     // Approving writes into the same levels/case slot HOD & Dean's broadsheet
     // review already reads, so it flows through the existing case mechanism. ----
-    requestDeferment: (reason, details) => setStore((s) => ({
-      ...s, deferment: { status: "pending", reason, details, note: "" },
+    requestDeferment: (reason, details, fileName) => setStore((s) => ({
+      ...s, deferment: { status: "pending", reason, details, fileName: fileName || null, note: "" },
       notifs: pushN(s, "adviser", { icon: "info", tone: "warning", title: "Deferment requested", body: window.DATA.STUDENT.name + " requested a deferment (" + reason + "). Review under Advisees." }),
     })),
     decideDeferment: (approve, note) => setStore((s) => {
@@ -556,6 +556,15 @@ export default function App() {
       m[id] = value; r[key] = m; roles[role] = r;
       return { ...s, roles };
     }),
+    // same as roleAct but commits a whole batch of id->value pairs in one go —
+    // for screens with a single "Save changes" button covering many rows
+    roleActBulk: (role, key, patch) => setStore((s) => {
+      const roles = { ...(s.roles || {}) };
+      const r = { ...(roles[role] || {}) };
+      const m = { ...(r[key] || {}), ...patch };
+      r[key] = m; roles[role] = r;
+      return { ...s, roles };
+    }),
     // ---- ICT admin: provision users & sessions ----
     ictCreateUser: (u) => setStore((s) => {
       const roles = { ...(s.roles || {}) };
@@ -575,6 +584,9 @@ export default function App() {
     toggleWindow: (key) => setStore((s) => { const se = sz(s); return { ...s, session: { ...se, [key]: !se[key] } }; }),
     setSemester: (sem) => setStore((s) => ({ ...s, session: { ...sz(s), semester: sem } })),
     publishResults: (on) => setStore((s) => ({ ...s, session: { ...sz(s), results: on } })),
+    // batch-commit for the ICT Sessions screen: one save for semester + all
+    // four windows + release mode, instead of each control writing on its own
+    setSessionSettings: (patch) => setStore((s) => ({ ...s, session: { ...sz(s), ...patch } })),
     // adviser per-course advice: store.roles.adviser.advice[adviseeId][courseCode] = text
     adviserComment: (adviseeId, courseCode, text) => setStore((s) => {
       const roles = { ...(s.roles || {}) };

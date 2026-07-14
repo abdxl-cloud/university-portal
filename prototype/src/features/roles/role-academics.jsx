@@ -42,6 +42,24 @@ function ReturnWithNote({ onConfirm, label = "Return", placeholder = "Explain wh
   );
 }
 
+/* reusable: a row-level assignment dropdown that never saves on change alone
+   — pick a value, then a "Save" button appears (same dirty-check convention
+   as AdviserUnitsCard's unit-limit fields), so a stray click never reassigns
+   someone by accident. */
+function SavableSelect({ value, options, onSave, invalid, width = 180, small }) {
+  const [draft, setDraft] = React.useState(value);
+  const dirty = draft !== value;
+  return (
+    <div className="u-row" style={{ gap: 6, alignItems: "center" }}>
+      <select className="fb-input" style={small ? { padding: "3px 7px", fontSize: 12 } : { minWidth: width, padding: "7px 10px", borderColor: invalid && invalid(draft) ? "var(--danger)" : undefined }}
+        value={draft} onChange={(e) => setDraft(e.target.value)}>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      {dirty && <Btn variant="accent" size="sm" icon="check" onClick={() => onSave(draft)}>Save</Btn>}
+    </div>
+  );
+}
+
 /* deferment: appears only while one is actually pending, rather than a
    permanent empty-state card — it's rare, so it shouldn't take up space
    when there's nothing to review. */
@@ -56,14 +74,24 @@ function DefermentRequestCard({ store, actions }) {
         <Tag variant="warning" dot>Pending</Tag>
       </div>
       <div className="u-row" style={{ gap: 12, alignItems: "flex-start" }}>
-        <Avatar initials={STUDENT.initials} size={36} />
+        <div className="u-row" style={{ gap: 10, cursor: "pointer" }} onClick={() => window.showDetail("student", { name: STUDENT.name, matric: STUDENT.matric, level: "300L" })}>
+          <Avatar initials={STUDENT.initials} size={36} />
+        </div>
         <div className="u-grow" style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 13.5 }}>{STUDENT.name} <span className="u-meta fb-mono" style={{ fontWeight: 400 }}>{STUDENT.matric}</span></div>
+          <div style={{ fontWeight: 600, fontSize: 13.5, cursor: "pointer" }} onClick={() => window.showDetail("student", { name: STUDENT.name, matric: STUDENT.matric, level: "300L" })}>
+            {STUDENT.name} <span className="u-meta fb-mono" style={{ fontWeight: 400 }}>{STUDENT.matric}</span>
+          </div>
           <div style={{ marginTop: 4 }}><Tag variant="accent">{d.reason}</Tag></div>
           <div style={{ fontSize: 13, marginTop: 8 }}>{d.details}</div>
+          {d.fileName && (
+            <div className="u-row" style={{ gap: 7, marginTop: 8, color: "var(--fg-muted)" }}>
+              <Icon name="doc" size={13} /> <span className="fb-mono" style={{ fontSize: 12 }}>{d.fileName}</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="u-row u-wrap" style={{ gap: 8, marginTop: 14 }}>
+        <Btn variant="secondary" size="sm" icon="chart" onClick={() => window.showDetail("student", { name: STUDENT.name, matric: STUDENT.matric, level: "300L" })}>Academic record</Btn>
         <ReturnWithNote label="Decline" variant="secondary" icon="x" placeholder="Why are you declining this request?" onConfirm={(note) => actions.decideDeferment(false, note)} />
         <Btn variant="accent" size="sm" onClick={() => actions.decideDeferment(true)}>Approve deferment</Btn>
       </div>
@@ -754,7 +782,11 @@ function HodDashboard({ store, go, roleCfg, hat }) {
 function HodAssignments({ store, actions }) {
   const { STAFF_POOL } = window.ROLE_DATA;
   const [level, setLevel] = React.useState("300L");
-  const courses = hodAllCourses(store).filter((c) => c.level === level);
+  const allCourses = hodAllCourses(store);
+  const courses = allCourses.filter((c) => c.level === level);
+  const committed = Object.fromEntries(allCourses.map((c) => [c.code, c.lecturer]));
+  const [draft, setDraft] = React.useState(committed);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(committed);
   return (
     <div className="u-content">
       <PageHead title="Course Assignments" sub={"Computer Science · " + level + " · assign a lecturer to every course"}>
@@ -771,8 +803,8 @@ function HodAssignments({ store, actions }) {
                   <td className="u-muted">{c.title}</td>
                   <td className="u-right u-num">{c.units}</td>
                   <td>
-                    <select className="fb-input" style={{ minWidth: 180, padding: "7px 10px", borderColor: c.lecturer === "Unassigned" ? "var(--danger)" : undefined }}
-                      value={c.lecturer} onChange={(e) => actions.roleAct("hod", "assign", c.code, e.target.value)}>
+                    <select className="fb-input" style={{ minWidth: 180, padding: "7px 10px", borderColor: draft[c.code] === "Unassigned" ? "var(--danger)" : undefined }}
+                      value={draft[c.code]} onChange={(e) => setDraft({ ...draft, [c.code]: e.target.value })}>
                       {STAFF_POOL.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
@@ -782,7 +814,17 @@ function HodAssignments({ store, actions }) {
           </table>
         </div>
       </Card>
-      <div className="u-meta" style={{ marginTop: 12 }}>Changes save instantly. Newly assigned lecturers gain access to that course's roster and class space.</div>
+      <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+        {dirty ? (
+          <>
+            <Btn variant="accent" icon="check" onClick={() => actions.roleActBulk("hod", "assign", draft)}>Save changes</Btn>
+            <Btn variant="ghost" onClick={() => setDraft(committed)}>Discard</Btn>
+            <span className="u-meta">Unsaved. Newly assigned lecturers gain access to that course's roster and class space once saved.</span>
+          </>
+        ) : (
+          <span className="u-meta"><Icon name="info" size={13} /> Nothing to save.</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -840,6 +882,9 @@ function HodStaff({ store }) {
 function HodAdvisers({ store, actions }) {
   const { STAFF_POOL } = window.ROLE_DATA;
   const levelAdviser = (lvl) => rstate(store, "hod", "levelAdviser", lvl, lvl === "300L" ? "Dr. C. Madu" : "Unassigned");
+  const committed = Object.fromEntries(LEVELS.map((lvl) => [lvl, levelAdviser(lvl)]));
+  const [draft, setDraft] = React.useState(committed);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(committed);
   return (
     <div className="u-content">
       <PageHead title="Level Advisers" sub="Computer Science · one adviser per level: approves course registrations and oversees that class" />
@@ -848,25 +893,32 @@ function HodAdvisers({ store, actions }) {
           <table className="u-table">
             <thead><tr><th>Level</th><th>Adviser</th></tr></thead>
             <tbody>
-              {LEVELS.map((lvl) => {
-                const cur = levelAdviser(lvl);
-                return (
-                  <tr key={lvl}>
-                    <td><Tag>{lvl}</Tag></td>
-                    <td>
-                      <select className="fb-input" style={{ minWidth: 220, padding: "7px 10px", borderColor: cur === "Unassigned" ? "var(--danger)" : undefined }}
-                        value={cur} onChange={(e) => actions.roleAct("hod", "levelAdviser", lvl, e.target.value)}>
-                        {STAFF_POOL.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
+              {LEVELS.map((lvl) => (
+                <tr key={lvl}>
+                  <td><Tag>{lvl}</Tag></td>
+                  <td>
+                    <select className="fb-input" style={{ minWidth: 220, padding: "7px 10px", borderColor: draft[lvl] === "Unassigned" ? "var(--danger)" : undefined }}
+                      value={draft[lvl]} onChange={(e) => setDraft({ ...draft, [lvl]: e.target.value })}>
+                      {STAFF_POOL.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </Card>
-      <div className="u-meta" style={{ marginTop: 12 }}>Changes save instantly.</div>
+      <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+        {dirty ? (
+          <>
+            <Btn variant="accent" icon="check" onClick={() => actions.roleActBulk("hod", "levelAdviser", draft)}>Save changes</Btn>
+            <Btn variant="ghost" onClick={() => setDraft(committed)}>Discard</Btn>
+            <span className="u-meta">Unsaved.</span>
+          </>
+        ) : (
+          <span className="u-meta"><Icon name="info" size={13} /> Nothing to save.</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -1002,6 +1054,118 @@ function TrendLine({ trend }) {
       </span>
     </div>
   );
+}
+
+/* ============ STUDENT CASES: a standalone page, not tucked inside the
+   broadsheot ============
+   Deferment/absconded/suspended/DEX/teaching-practice are known at the start
+   of a semester, not at result time — waiting for Exams & Records to compile
+   a level before anyone can even see a case exists was the bug. This reuses
+   the same rstate("levels","case",...) slot the broadsheet's condonement
+   panel still reads, so nothing about disposition itself changes: only where
+   it's visible and actionable. */
+function deptCases(store, levelEntries) {
+  return levelEntries.flatMap(({ dept, level }) =>
+    levelCohort(dept, level, store, "cur").rows
+      .filter((r) => r.missedSemester)
+      .map((r) => ({ ...r, level, deptCode: dept.code, deptName: dept.name || dept.code })));
+}
+function caseInitials(name) { return name.split(" ").map((x) => x[0]).slice(0, 2).join(""); }
+
+/* the type dropdown is local until Decline/Approve is actually clicked —
+   changing it alone never writes anything */
+function CaseRow({ r, store, canDecide, multiDept, decide }) {
+  const rec = r.caseRec || { type: "Deferment", status: "flagged" };
+  const [type, setType] = React.useState(rec.type);
+  const { STUDENT } = window.DATA;
+  // only the real demo student's Deferment case traces back to an actual
+  // request with details/an attachment: synthetic cases are department-raised
+  // with no origination form, so there's nothing to show for them
+  const request = r.matric === STUDENT.matric && rec.type === "Deferment" ? store.deferment : null;
+  const openRecord = () => window.showDetail("student", { name: r.name, matric: r.matric, level: r.level });
+  return (
+    <div className="u-row u-wrap" style={{ gap: 12, padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
+      <div className="u-row" style={{ gap: 10, minWidth: 0 }}>
+        <div style={{ cursor: "pointer" }} onClick={openRecord}><Avatar initials={caseInitials(r.name)} size={32} /></div>
+        <div style={{ minWidth: 0 }}>
+          <div className="u-row u-wrap" style={{ gap: 6, alignItems: "center" }}>
+            <span style={{ fontWeight: 600, fontSize: 13.5, cursor: "pointer" }} onClick={openRecord}>{r.name}</span>
+            <Tag>{r.level}</Tag>
+            {multiDept && <Tag variant="accent">{r.deptName}</Tag>}
+            <button type="button" className="fb-link" style={{ fontSize: 12 }} onClick={openRecord}>Academic record</button>
+          </div>
+          <div className="u-meta fb-mono">{r.matric}</div>
+          {request && request.details && <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--fg-muted)", maxWidth: 420 }}>{request.details}</div>}
+          {request && request.fileName && (
+            <div className="u-row" style={{ gap: 6, marginTop: 4, color: "var(--fg-muted)" }}>
+              <Icon name="doc" size={12} /> <span className="fb-mono" style={{ fontSize: 11.5 }}>{request.fileName}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {!canDecide ? (
+        rec.status === "approved" ? <Tag variant="accent" dot>Approved · {rec.type}</Tag>
+          : rec.status === "declined" ? <Tag variant="danger" dot>Declined</Tag>
+            : <Tag variant="warning" dot>Pending ({rec.type})</Tag>
+      ) : rec.status === "flagged" ? (
+        <div className="u-row" style={{ gap: 8, alignItems: "center" }}>
+          <select className="fb-input" style={{ padding: "5px 8px", fontSize: 12.5 }} value={type} onChange={(e) => setType(e.target.value)}>
+            {CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <Btn variant="secondary" size="sm" onClick={() => decide(r, type, "declined")}>Decline</Btn>
+          <Btn variant="accent" size="sm" onClick={() => decide(r, type, "approved")}>Approve case</Btn>
+        </div>
+      ) : rec.status === "approved" ? (
+        <Tag variant="accent" dot>Approved · {rec.type}</Tag>
+      ) : (
+        <Tag variant="danger" dot>Declined</Tag>
+      )}
+    </div>
+  );
+}
+
+function StudentCasesScreen({ store, actions, title, scopeLabel, levelEntries, canDecide, multiDept }) {
+  const allCases = React.useMemo(() => deptCases(store, levelEntries), [store, levelEntries]);
+  const depts = multiDept ? [...new Set(allCases.map((r) => r.deptName))].sort() : [];
+  const [deptFilter, setDeptFilter] = React.useState("all");
+  const cases = deptFilter === "all" ? allCases : allCases.filter((r) => r.deptName === deptFilter);
+  const open = cases.filter((r) => (r.caseRec || {}).status === "flagged");
+  const pager = usePaged(cases, 15);
+  const decide = (r, type, status) => actions.roleAct("levels", "case", levelKey(r.deptCode, r.level) + "|" + r.matric, { type, status });
+  return (
+    <div className="u-content">
+      <PageHead title={title} sub={scopeLabel + " · " + cases.length + " case" + (cases.length === 1 ? "" : "s") + " this semester" + (open.length ? " · " + open.length + " awaiting disposition" : "")}>
+        {multiDept && depts.length > 1 && (
+          <select className="fb-input" style={{ maxWidth: 220, padding: "8px 10px" }} value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
+            <option value="all">All departments</option>
+            {depts.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
+      </PageHead>
+      {cases.length === 0 ? (
+        <Empty icon="check" title="No cases" sub="Deferment, absence, suspension and similar cases land here as soon as they're raised — no need to wait for results." />
+      ) : (
+        <Card className="u-pad">
+          <div className="u-stack" style={{ gap: 8 }}>
+            {pager.slice.map((r) => (
+              <CaseRow key={r.deptCode + r.level + "|" + r.matric} r={r} store={store} canDecide={canDecide} multiDept={multiDept} decide={decide} />
+            ))}
+          </div>
+          <Pagination pager={pager} label="cases" sizes={[15, 30, 60]} />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function HodStudentCases({ store, actions }) {
+  return <StudentCasesScreen store={store} actions={actions} title="Student Cases" scopeLabel="Computer Science" canDecide
+    levelEntries={LEVELS.map((lvl) => ({ dept: { code: "CSC", name: "Computer Science" }, level: lvl }))} />;
+}
+function DeanStudentCases({ store, roleCfg }) {
+  const fac = window.ORG.facultyById((roleCfg && roleCfg.facultyId) || "computing");
+  return <StudentCasesScreen store={store} title="Student Cases" scopeLabel={fac.name} multiDept
+    levelEntries={facultyLevels(store, (roleCfg && roleCfg.facultyId) || "computing")} />;
 }
 
 /* which dept×level entries this role can act on right now, and at what scope.
@@ -1380,101 +1544,51 @@ function RemarkCell({ r }) {
     : <Tag variant="success" dot>IGS</Tag>;
 }
 
-/* student cases: visible to whichever role is reviewing this level right now
-   (HOD or Dean, whoever's stage it is), not exclusively the School Board.
-   Collapsed to a one-line summary + "Review" button rather than an
-   always-expanded list: a department with a long list of cases shouldn't
-   push the rest of the broadsheet off the page. */
-function StudentCasesCard({ store, actions, pipe, rows }) {
-  const [open, setOpen] = React.useState(false);
+/* condonement stays here: it needs computed scores, which only exist once
+   Exams & Records has compiled the level. Case disposition itself now lives
+   on the standalone Student Cases page (deptCases/StudentCasesScreen above)
+   — this card only references it, so a reviewer isn't left wondering where
+   a case with no F's on this page went. */
+function CondonementCard({ store, actions, pipe, rows }) {
   const cases = rows.filter((r) => r.missedSemester);
+  const openCases = cases.filter((r) => (r.caseRec || {}).status === "flagged");
   const borderline = [];
   rows.forEach((r) => r.grades.forEach((g) => {
     if (g.grade === "F" && g.score >= 38) borderline.push({ matric: r.matric, name: r.name, code: g.code, score: g.score });
     if (g.condoned) borderline.push({ matric: r.matric, name: r.name, code: g.code, score: g.score, condoned: true });
   }));
-  const openCases = cases.filter((r) => (r.caseRec || {}).status === "flagged");
-  const openCondone = borderline.filter((b) => !b.condoned);
-  if (cases.length === 0 && borderline.length === 0) {
-    return (
-      <Card className="u-pad" style={{ marginBottom: 16 }}>
-        <div className="u-row" style={{ gap: 9 }}>
-          <Icon name="check" size={14} style={{ color: "var(--success)" }} />
-          <span style={{ fontSize: 13 }}>No student cases or condonement requests on this level.</span>
-        </div>
-      </Card>
-    );
-  }
-  const decide = (matric, type, status) => actions.roleAct("levels", "case", pipe.key + "|" + matric, { type, status });
-  const summary = [
-    cases.length > 0 ? cases.length + " student case" + (cases.length === 1 ? "" : "s") : null,
-    borderline.length > 0 ? borderline.length + " borderline failure" + (borderline.length === 1 ? "" : "s") : null,
-  ].filter(Boolean).join(" · ");
-  const needsAttention = openCases.length > 0 || openCondone.length > 0;
+  if (cases.length === 0 && borderline.length === 0) return null;
   return (
     <Card className="u-pad" style={{ marginBottom: 16 }}>
-      <div className="u-row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div className="u-row" style={{ gap: 9 }}>
-          <Icon name="info" size={14} style={{ color: needsAttention ? "var(--warning)" : "var(--fg-subtle)" }} />
-          <span style={{ fontSize: 13 }}>{summary}{needsAttention ? " · needs disposition" : ""}</span>
+      {cases.length > 0 && (
+        <div className="u-row" style={{ gap: 9, marginBottom: borderline.length ? 14 : 0, paddingBottom: borderline.length ? 14 : 0, borderBottom: borderline.length ? "1px solid var(--border)" : "none" }}>
+          <Icon name="info" size={14} style={{ color: openCases.length ? "var(--warning)" : "var(--fg-subtle)" }} />
+          <span style={{ fontSize: 13 }}>
+            {cases.length} student case{cases.length === 1 ? "" : "s"} on this level
+            {openCases.length ? " · " + openCases.length + " still awaiting disposition" : " · all resolved"}
+            {" — decided from the Student Cases page, not here."}
+          </span>
         </div>
-        <Btn variant="secondary" size="sm" onClick={() => setOpen(true)}>Review</Btn>
-      </div>
-      {open && (
-        <Modal onClose={() => setOpen(false)} lg>
-          <ModalHead title="Student cases" sub="Raised by the department for students absent from the whole semester" onClose={() => setOpen(false)} />
-          <div className="u-pad u-stack" style={{ gap: 16 }}>
-            <div className="u-meta">Disposing a case here excludes that student from this semester's GPA, whichever way it's decided. Condonement is only actioned once outstanding cases are cleared.</div>
-            {cases.length > 0 && (
-              <div className="u-stack" style={{ gap: 6 }}>
-                {cases.map((r) => {
-                  const rec = r.caseRec || { type: "Deferment", status: "flagged" };
-                  return (
-                    <div key={r.matric} className="u-row u-wrap" style={{ gap: 10, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
-                      <div className="u-row" style={{ gap: 8, minWidth: 0 }}>
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>{r.name}</span>
-                        <span className="u-meta fb-mono">{r.matric}</span>
-                      </div>
-                      {rec.status === "flagged" ? (
-                        <div className="u-row" style={{ gap: 8, alignItems: "center" }}>
-                          <select className="fb-input" style={{ padding: "5px 8px", fontSize: 12.5 }} value={rec.type} onChange={(e) => decide(r.matric, e.target.value, "flagged")}>
-                            {CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <Btn variant="secondary" size="sm" onClick={() => decide(r.matric, rec.type, "declined")}>Decline</Btn>
-                          <Btn variant="accent" size="sm" onClick={() => decide(r.matric, rec.type, "approved")}>Approve case</Btn>
-                        </div>
-                      ) : rec.status === "approved" ? (
-                        <Tag variant="accent" dot>Approved · {rec.type}</Tag>
-                      ) : (
-                        <Tag variant="danger" dot>Declined</Tag>
-                      )}
-                    </div>
-                  );
-                })}
+      )}
+      {borderline.length > 0 && (
+        <div className="u-stack" style={{ gap: 6 }}>
+          <div className="u-meta" style={{ fontWeight: 600 }}>Borderline failures (38-39) eligible for condonement</div>
+          {borderline.map((b, i) => (
+            <div key={i} className="u-row u-wrap" style={{ gap: 10, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
+              <div className="u-row" style={{ gap: 8, minWidth: 0 }}>
+                <span className="fb-mono" style={{ fontSize: 12, fontWeight: 600 }}>{b.code}</span>
+                <span style={{ fontSize: 13 }}>{b.name}</span>
+                <span className="u-meta fb-mono">{b.matric}</span>
+                <Tag variant="danger">{b.score}/100</Tag>
               </div>
-            )}
-            {borderline.length > 0 && (
-              <div className="u-stack" style={{ gap: 6 }}>
-                <div className="u-meta" style={{ fontWeight: 600 }}>Borderline failures (38-39) eligible for condonement</div>
-                {borderline.map((b, i) => (
-                  <div key={i} className="u-row u-wrap" style={{ gap: 10, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
-                    <div className="u-row" style={{ gap: 8, minWidth: 0 }}>
-                      <span className="fb-mono" style={{ fontSize: 12, fontWeight: 600 }}>{b.code}</span>
-                      <span style={{ fontSize: 13 }}>{b.name}</span>
-                      <span className="u-meta fb-mono">{b.matric}</span>
-                      <Tag variant="danger">{b.score}/100</Tag>
-                    </div>
-                    {b.condoned
-                      ? <Tag variant="success" dot>Condoned to E</Tag>
-                      : openCases.length > 0
-                        ? <Tag variant="warning" dot>Blocked on open cases</Tag>
-                        : <Btn variant="secondary" size="sm" onClick={() => actions.roleAct("levels", "condone", pipe.key + "|" + b.matric + "|" + b.code, true)}>Condone to pass</Btn>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+              {b.condoned
+                ? <Tag variant="success" dot>Condoned to E</Tag>
+                : openCases.length > 0
+                  ? <Tag variant="warning" dot>Blocked on open cases</Tag>
+                  : <Btn variant="secondary" size="sm" onClick={() => actions.roleAct("levels", "condone", pipe.key + "|" + b.matric + "|" + b.code, true)}>Condone to pass</Btn>}
+            </div>
+          ))}
+        </div>
       )}
     </Card>
   );
@@ -1564,7 +1678,7 @@ function LevelBroadsheet({ store, actions, departments, subtitle, initialLevel, 
             {pipelineAction && <div style={{ marginTop: 12 }}>{pipelineAction(pipe, dept, level, rows)}</div>}
           </Card>
 
-          {showCases && !restricted && <StudentCasesCard store={store} actions={actions} pipe={pipe} rows={rows} />}
+          {showCases && !restricted && <CondonementCard store={store} actions={actions} pipe={pipe} rows={rows} />}
         </>
       )}
 
@@ -1922,10 +2036,8 @@ function RoleScheduleScreen({ store, actions, roleCfg, teaching, scopeLabel, aud
                         <div className="u-row" style={{ gap: 6, marginTop: 6, alignItems: "center" }}>
                           <span className="u-meta">Invigilator:</span>
                           {invigilators && invigilators.length ? (
-                            <select className="fb-input" style={{ padding: "3px 7px", fontSize: 12 }}
-                              value={e.invigilator || ""} onChange={(ev2) => actions.assignInvigilator(e.id, ev2.target.value)}>
-                              {invigilators.map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                            <SavableSelect small value={e.invigilator || invigilators[0]} options={invigilators}
+                              onSave={(v) => actions.assignInvigilator(e.id, v)} />
                           ) : <span className="u-meta fb-mono">{e.invigilator || "Unassigned"}</span>}
                         </div>
                       )}
@@ -1978,13 +2090,17 @@ function HodProjects({ store, actions }) {
   const [q, setQ] = React.useState("");
   const [defFor, setDefFor] = React.useState(null);
   const supOf = (f) => rstate(store, "hod", "supv", f.id, f.baseSupervisor);
+  const committed = Object.fromEntries(FINALISTS.map((f) => [f.id, supOf(f)]));
+  const [draft, setDraft] = React.useState(committed);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(committed);
   const filtered = FINALISTS.filter((f) => !q || f.name.toLowerCase().includes(q.toLowerCase()) || f.matric.toLowerCase().includes(q.toLowerCase()));
   const pager = usePaged(filtered, 12);
-  const unassigned = FINALISTS.filter((f) => supOf(f) === "Unassigned").length;
+  const unassigned = FINALISTS.filter((f) => draft[f.id] === "Unassigned").length;
 
-  // workload per supervisor
+  // workload per supervisor, reflecting unsaved picks too so the admin can see
+  // the effect of a change before committing it
   const load = {};
-  FINALISTS.forEach((f) => { const sv = supOf(f); if (sv !== "Unassigned") load[sv] = (load[sv] || 0) + 1; });
+  FINALISTS.forEach((f) => { const sv = draft[f.id]; if (sv !== "Unassigned") load[sv] = (load[sv] || 0) + 1; });
 
   // students cleared for defence: the live demo student plus seeded ones the supervisor cleared
   const p = store.project || {};
@@ -2037,28 +2153,35 @@ function HodProjects({ store, actions }) {
           <table className="u-table">
             <thead><tr><th>Matric</th><th>Student</th><th className="u-right">CGPA</th><th>Supervisor</th></tr></thead>
             <tbody>
-              {pager.slice.map((f) => {
-                const cur = supOf(f);
-                return (
-                  <tr key={f.id}>
-                    <td className="fb-mono" style={{ fontSize: 12 }}>{f.matric}</td>
-                    <td style={{ fontWeight: 500 }}>{f.name}</td>
-                    <td className="u-right u-num">{f.cgpa}</td>
-                    <td>
-                      <select className="fb-input" style={{ minWidth: 190, padding: "7px 10px", borderColor: cur === "Unassigned" ? "var(--danger)" : undefined }}
-                        value={cur} onChange={(e) => actions.roleAct("hod", "supv", f.id, e.target.value)}>
-                        {STAFF_POOL.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
+              {pager.slice.map((f) => (
+                <tr key={f.id}>
+                  <td className="fb-mono" style={{ fontSize: 12 }}>{f.matric}</td>
+                  <td style={{ fontWeight: 500 }}>{f.name}</td>
+                  <td className="u-right u-num">{f.cgpa}</td>
+                  <td>
+                    <select className="fb-input" style={{ minWidth: 190, padding: "7px 10px", borderColor: draft[f.id] === "Unassigned" ? "var(--danger)" : undefined }}
+                      value={draft[f.id]} onChange={(e) => setDraft({ ...draft, [f.id]: e.target.value })}>
+                      {STAFF_POOL.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <Pagination pager={pager} label="students" sizes={[12, 25, 50]} />
       </Card>
-      <div className="u-meta" style={{ marginTop: 12 }}>Assignments save instantly. A supervisor sees their students under Supervision in the staff portal.</div>
+      <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+        {dirty ? (
+          <>
+            <Btn variant="accent" icon="check" onClick={() => actions.roleActBulk("hod", "supv", draft)}>Save changes</Btn>
+            <Btn variant="ghost" onClick={() => setDraft(committed)}>Discard</Btn>
+            <span className="u-meta">Unsaved. A supervisor sees their students under Supervision in the staff portal once saved.</span>
+          </>
+        ) : (
+          <span className="u-meta"><Icon name="info" size={13} /> Nothing to save.</span>
+        )}
+      </div>
 
       {defFor && <DefenceModal c={defFor} actions={actions} onClose={() => setDefFor(null)} />}
     </div>
@@ -2071,12 +2194,15 @@ function HodSiwes({ store, actions }) {
   const { SIWES_STUDENTS, STAFF_POOL } = window.ROLE_DATA;
   const [q, setQ] = React.useState("");
   const supOf = (s) => rstate(store, "hod", "itSupv", s.id, s.baseSupervisor);
+  const committed = Object.fromEntries(SIWES_STUDENTS.map((s) => [s.id, supOf(s)]));
+  const [draft, setDraft] = React.useState(committed);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(committed);
   const filtered = SIWES_STUDENTS.filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()) || s.matric.toLowerCase().includes(q.toLowerCase()));
   const pager = usePaged(filtered, 12);
-  const unassigned = SIWES_STUDENTS.filter((s) => supOf(s) === "Unassigned").length;
+  const unassigned = SIWES_STUDENTS.filter((s) => draft[s.id] === "Unassigned").length;
 
   const load = {};
-  SIWES_STUDENTS.forEach((s) => { const sv = supOf(s); if (sv !== "Unassigned") load[sv] = (load[sv] || 0) + 1; });
+  SIWES_STUDENTS.forEach((s) => { const sv = draft[s.id]; if (sv !== "Unassigned") load[sv] = (load[sv] || 0) + 1; });
 
   return (
     <div className="u-content">
@@ -2101,28 +2227,35 @@ function HodSiwes({ store, actions }) {
           <table className="u-table">
             <thead><tr><th>Matric</th><th>Student</th><th>Placement company</th><th>Supervisor</th></tr></thead>
             <tbody>
-              {pager.slice.map((s) => {
-                const cur = supOf(s);
-                return (
-                  <tr key={s.id}>
-                    <td className="fb-mono" style={{ fontSize: 12 }}>{s.matric}</td>
-                    <td style={{ fontWeight: 500 }}>{s.name}</td>
-                    <td className="u-muted">{s.company}</td>
-                    <td>
-                      <select className="fb-input" style={{ minWidth: 190, padding: "7px 10px", borderColor: cur === "Unassigned" ? "var(--danger)" : undefined }}
-                        value={cur} onChange={(e) => actions.roleAct("hod", "itSupv", s.id, e.target.value)}>
-                        {STAFF_POOL.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
+              {pager.slice.map((s) => (
+                <tr key={s.id}>
+                  <td className="fb-mono" style={{ fontSize: 12 }}>{s.matric}</td>
+                  <td style={{ fontWeight: 500 }}>{s.name}</td>
+                  <td className="u-muted">{s.company}</td>
+                  <td>
+                    <select className="fb-input" style={{ minWidth: 190, padding: "7px 10px", borderColor: draft[s.id] === "Unassigned" ? "var(--danger)" : undefined }}
+                      value={draft[s.id]} onChange={(e) => setDraft({ ...draft, [s.id]: e.target.value })}>
+                      {STAFF_POOL.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <Pagination pager={pager} label="students" sizes={[12, 25, 50]} />
       </Card>
-      <div className="u-meta" style={{ marginTop: 12 }}>Assignments save instantly. Supervisors visit and sign off on their students' logbooks during the IT period.</div>
+      <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+        {dirty ? (
+          <>
+            <Btn variant="accent" icon="check" onClick={() => actions.roleActBulk("hod", "itSupv", draft)}>Save changes</Btn>
+            <Btn variant="ghost" onClick={() => setDraft(committed)}>Discard</Btn>
+            <span className="u-meta">Unsaved. Supervisors visit and sign off on their students' logbooks during the IT period once saved.</span>
+          </>
+        ) : (
+          <span className="u-meta"><Icon name="info" size={13} /> Nothing to save.</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -2546,8 +2679,8 @@ function ExamsTranscripts({ store, actions }) {
 Object.assign(window, {
   Decide,
   AdviserDashboard, AdviserApprovals, AdviserAdvisees,
-  HodDashboard, HodAssignments, HodStaff, HodAdvisers, HodSiwes, HodSchedule, HodProjects,
-  DeanDashboard, DeanDepts, DeanAdmissions, DeanSchedule,
+  HodDashboard, HodAssignments, HodStaff, HodAdvisers, HodSiwes, HodSchedule, HodProjects, HodStudentCases,
+  DeanDashboard, DeanDepts, DeanAdmissions, DeanSchedule, DeanStudentCases,
   ExamsLevelResults, ResultSheetDetail, RoleScheduleScreen, LevelBroadsheet, LevelReviewQueue,
   ExamsDashboard, ExamsTranscripts, ExamsCourses, ExamsCourseResults, ExamsIssues,
 });
