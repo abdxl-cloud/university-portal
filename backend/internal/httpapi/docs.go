@@ -36,6 +36,7 @@ const openAPISpec = `{
   "info": {
     "title": "UniPortal API",
     "summary": "Backend API for the FUTECH student portal prototype.",
+    "description": "## Seeded development accounts\n\nAll accounts use the password **demo1234**.\n\n| Role | Identifier |\n| --- | --- |\n| Student | FUT/2022/CSC/10428 |\n| Lecturer | FUT/STF/CSC/0391 |\n| Academic adviser | FUT/STF/CSC/0288 |\n| Head of department | FUT/STF/CSC/0102 |\n| Dean | FUT/STF/COM/0007 |\n| Exams officer | FUT/STF/EXM/0451 |\n| Bursary | FUT/STF/BUR/0319 |\n| Librarian | FUT/STF/LIB/0044 |\n| Clinic | FUT/STF/MED/0009 |\n| Hostel officer | FUT/STF/SAF/0277 |\n| Registry | FUT/STF/REG/0061 |\n| ICT administrator | FUT/STF/ICT/0015 |",
     "version": "0.1.0"
   },
   "servers": [

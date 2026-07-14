@@ -91,6 +91,7 @@ type Course struct {
 	ID           string `json:"id"`
 	Code         string `json:"code"`
 	Title        string `json:"title"`
+	Description  string `json:"description,omitempty"`
 	Units        int    `json:"units"`
 	Level        string `json:"level"`
 	Semester     string `json:"semester"`

@@ -47,6 +47,23 @@ $login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/l
 Invoke-RestMethod -Uri http://localhost:8080/api/v1/me -Headers @{ Authorization = "Bearer $($login.accessToken)" }
 ```
 
+All seeded development accounts use the password `demo1234`:
+
+| Role | Identifier |
+| --- | --- |
+| Student | `FUT/2022/CSC/10428` |
+| Lecturer | `FUT/STF/CSC/0391` |
+| Academic adviser | `FUT/STF/CSC/0288` |
+| Head of department | `FUT/STF/CSC/0102` |
+| Dean | `FUT/STF/COM/0007` |
+| Exams officer | `FUT/STF/EXM/0451` |
+| Bursary | `FUT/STF/BUR/0319` |
+| Librarian | `FUT/STF/LIB/0044` |
+| Clinic | `FUT/STF/MED/0009` |
+| Hostel officer | `FUT/STF/SAF/0277` |
+| Registry | `FUT/STF/REG/0061` |
+| ICT administrator | `FUT/STF/ICT/0015` |
+
 ## Run With Docker Compose
 
 From the project root:
