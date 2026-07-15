@@ -344,6 +344,77 @@ type Condonement struct {
 	CondonedAt time.Time `json:"condonedAt"`
 }
 
+// RosterEntry is one row of a lecturer's class list: a registered student
+// plus their current (possibly still-being-entered) score for the session.
+type RosterEntry struct {
+	StudentID string `json:"studentId"`
+	MatricNo  string `json:"matricNo"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	CA        *int   `json:"ca,omitempty"`
+	Exam      *int   `json:"exam,omitempty"`
+	Total     *int   `json:"total,omitempty"`
+	Grade     string `json:"grade,omitempty"`
+	Status    string `json:"status,omitempty"`
+}
+
+type CourseMaterial struct {
+	ID         string    `json:"id"`
+	CourseID   string    `json:"courseId"`
+	UploadedBy string    `json:"uploadedBy"`
+	Name       string    `json:"name"`
+	FileType   string    `json:"fileType"`
+	SizeLabel  string    `json:"sizeLabel"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type CoursePost struct {
+	ID           string    `json:"id"`
+	CourseID     string    `json:"courseId"`
+	AuthorUserID string    `json:"authorUserId"`
+	Body         string    `json:"body"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type Assignment struct {
+	ID           string    `json:"id"`
+	CourseID     string    `json:"courseId"`
+	Title        string    `json:"title"`
+	DueAt        time.Time `json:"dueAt"`
+	Points       int       `json:"points"`
+	Instructions string    `json:"instructions,omitempty"`
+	CreatedBy    string    `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type AssignmentSubmission struct {
+	ID           string     `json:"id"`
+	AssignmentID string     `json:"assignmentId"`
+	StudentID    string     `json:"studentId"`
+	MatricNo     string     `json:"matricNo,omitempty"`
+	StudentName  string     `json:"studentName,omitempty"`
+	Status       string     `json:"status"`
+	FileName     string     `json:"fileName"`
+	Note         string     `json:"note,omitempty"`
+	SubmittedAt  time.Time  `json:"submittedAt"`
+	Grade        *int       `json:"grade,omitempty"`
+	Feedback     string     `json:"feedback,omitempty"`
+	GradedBy     string     `json:"gradedBy,omitempty"`
+	GradedAt     *time.Time `json:"gradedAt,omitempty"`
+}
+
+// ClassRep is a student recognized as the representative for a
+// department+level+session cohort: they can post to that cohort's course
+// streams and raise student_cases on a classmate's behalf.
+type ClassRep struct {
+	DepartmentID string    `json:"departmentId"`
+	Level        string    `json:"level"`
+	SessionID    string    `json:"sessionId"`
+	StudentID    string    `json:"studentId"`
+	AssignedBy   string    `json:"assignedBy"`
+	AssignedAt   time.Time `json:"assignedAt"`
+}
+
 type DashboardSnapshot struct {
 	Students         int `json:"students"`
 	Staff            int `json:"staff"`
