@@ -322,8 +322,9 @@ func (r raiseCaseRequest) Validate() error {
 }
 
 // raiseStudentCase serves POST /api/v1/student-cases: a student raises a
-// case for themselves, or adviser/hod/registry/ict raises one on a
-// student's behalf.
+// case for themselves (or, if they're the class rep for the target
+// student's department+level+session, on a classmate's behalf), or
+// adviser/hod/registry/ict raises one on a student's behalf.
 func (a *API) raiseStudentCase(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "student", "adviser", "hod", "registry", "ict")
 	if !ok {
@@ -333,9 +334,28 @@ func (a *API) raiseStudentCase(w http.ResponseWriter, r *http.Request) {
 	if !bind(w, r, &req) {
 		return
 	}
-	studentID, ok := a.targetStudentID(w, r, user, req.StudentID)
-	if !ok {
-		return
+	var studentID string
+	if user.Role == "student" {
+		scope, ok := a.studentScope(w, r, user)
+		if !ok {
+			return
+		}
+		if req.StudentID == "" || req.StudentID == scope {
+			studentID = scope
+		} else {
+			isRep, err := a.stf.IsClassRepFor(r.Context(), scope, req.StudentID, req.SessionID)
+			if err != nil {
+				respond.Err(w, err)
+				return
+			}
+			if !isRep {
+				respond.Error(w, http.StatusForbidden, "cannot raise a case for another student")
+				return
+			}
+			studentID = req.StudentID
+		}
+	} else {
+		studentID = req.StudentID
 	}
 	if studentID == "" {
 		respond.Err(w, apperr.Invalid("studentId is required"))

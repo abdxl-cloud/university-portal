@@ -22,6 +22,7 @@ import (
 	"formbuilder/backend/internal/modules"
 	"formbuilder/backend/internal/ops"
 	"formbuilder/backend/internal/registrations"
+	"formbuilder/backend/internal/staff"
 )
 
 type API struct {
@@ -31,6 +32,7 @@ type API struct {
 	library  *library.Repo
 	academic *academic.Repo
 	crs      *courses.Repo
+	stf      *staff.Repo
 	fees     *fees.Repo
 	regs     *registrations.Repo
 	hostels  *hostels.Repo
@@ -62,6 +64,7 @@ func New(opts Options) *API {
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
 		crs:      courses.NewRepo(opts.Pool),
+		stf:      staff.NewRepo(opts.Pool),
 		fees:     fees.NewRepo(opts.Pool),
 		regs:     registrations.NewRepo(opts.Pool),
 		hostels:  hostels.NewRepo(opts.Pool),
@@ -123,6 +126,20 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/student-cases", a.studentCases)
 	mux.HandleFunc("POST /api/v1/student-cases", a.raiseStudentCase)
 	mux.HandleFunc("PATCH /api/v1/student-cases/decision", a.decideStudentCase)
+	mux.HandleFunc("GET /api/v1/courses/{id}/roster", a.roster)
+	mux.HandleFunc("PATCH /api/v1/courses/{id}/roster/score", a.upsertScore)
+	mux.HandleFunc("GET /api/v1/courses/{id}/assignments", a.assignments)
+	mux.HandleFunc("POST /api/v1/courses/{id}/assignments", a.createAssignment)
+	mux.HandleFunc("GET /api/v1/assignments/{id}/submissions", a.assignmentSubmissions)
+	mux.HandleFunc("POST /api/v1/assignments/{id}/submissions", a.submitAssignment)
+	mux.HandleFunc("PATCH /api/v1/assignment-submissions/{id}/grade", a.gradeSubmission)
+	mux.HandleFunc("GET /api/v1/courses/{id}/materials", a.materials)
+	mux.HandleFunc("POST /api/v1/courses/{id}/materials", a.addMaterial)
+	mux.HandleFunc("GET /api/v1/courses/{id}/posts", a.coursePosts)
+	mux.HandleFunc("POST /api/v1/courses/{id}/posts", a.addCoursePost)
+	mux.HandleFunc("GET /api/v1/class-reps", a.classReps)
+	mux.HandleFunc("POST /api/v1/class-reps", a.assignClassRep)
+	mux.HandleFunc("POST /api/v1/class-reps/revoke", a.revokeClassRep)
 	mux.HandleFunc("GET /api/v1/hostels/halls", a.moduleHandler("hostels", a.hostelHalls))
 	mux.HandleFunc("GET /api/v1/hostels/rooms", a.moduleHandler("hostels", a.hostelRooms))
 	mux.HandleFunc("GET /api/v1/hostels/beds", a.moduleHandler("hostels", a.hostelBeds))
