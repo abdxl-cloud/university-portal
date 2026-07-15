@@ -1625,6 +1625,398 @@ const openAPISpec = `{
           }
         }
       }
+    },
+    "/api/v1/results/submit": {
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Lecturer submits a course's draft results for a session",
+        "operationId": "submitResults",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { courseId, sessionId }. Transitions that course+session's draft results to submitted.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/results/decision": {
+      "patch": {
+        "tags": [
+          "Academic",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: Exams Officer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Approve a submitted result sheet, or query it back to the lecturer",
+        "operationId": "decideResults",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { courseId, sessionId, status: \"approved\"|\"query\", note }.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/results/condone": {
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: Exams Officer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Condone a borderline-F result (total 38-39)",
+        "operationId": "condoneResult",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { resultId }. Excludes the result from the carryover list without changing the grade.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/workflow-stages": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Generic"
+        ],
+        "summary": "List the configured results review chain (default: HOD, then Dean)",
+        "operationId": "getWorkflowStages",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow stages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnyObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Academic",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Replace the results review chain (ICT only)",
+        "operationId": "setWorkflowStages",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { stages: [{ position, roles: [role, ...], label }] }. A stage with more than one role is a board — every listed role must approve before it clears.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/level-review-progress": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: Exams Officer",
+          "Role: Registry",
+          "Role: ICT Administrator"
+        ],
+        "summary": "List department+level+session cohorts and where they sit in the review chain",
+        "operationId": "listLevelReviewProgress",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "departmentId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      }
+    },
+    "/api/v1/level-review-progress/compile": {
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Head of Department",
+          "Role: Exams Officer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Open the review chain for a department+level+session cohort",
+        "operationId": "compileLevel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { departmentId, level, sessionId }. Every result for the cohort must already be approved.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/level-review-progress/decision": {
+      "patch": {
+        "tags": [
+          "Academic",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Record the caller's approval (or query) at the cohort's current review stage",
+        "operationId": "decideLevelStage",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { id, status: \"approved\"|\"queried\" }. The caller's role must be one of the current stage's required roles; a board stage needs every required role to approve before it advances.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/level-review-progress/publish": {
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Exams Officer",
+          "Role: Registry",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Publish a cohort once its review chain is cleared",
+        "operationId": "publishLevel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { id }. Releases every approved result for the cohort so it shows up in transcripts.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/student-cases": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Role: Student",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: Exams Officer",
+          "Role: Registry",
+          "Role: ICT Administrator"
+        ],
+        "summary": "List student cases (deferment, absconded, suspended, dex, teaching practice)",
+        "operationId": "listStudentCases",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "A student sees only their own cases; staff roles see any, optionally filtered.",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Staff-only filter; ignored for a student caller (always scoped to self)"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deferment",
+                "absconded",
+                "suspended",
+                "dex",
+                "teaching_practice"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flagged",
+                "approved",
+                "declined"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Student",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: Registry",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Raise a student case",
+        "operationId": "raiseStudentCase",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { studentId, sessionId, level, type, reason, details, attachmentId }. Only type \"deferment\" may carry an attachment. A student raises for themselves; staff raise on a student's behalf.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/student-cases/decision": {
+      "patch": {
+        "tags": [
+          "Academic",
+          "Role: Head of Department",
+          "Role: Dean",
+          "Role: Registry",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Approve or decline a flagged student case",
+        "operationId": "decideStudentCase",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { id, status: \"approved\"|\"declined\" }.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
     }
   },
   "components": {
