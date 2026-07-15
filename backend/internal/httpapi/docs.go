@@ -2017,6 +2017,533 @@ const openAPISpec = `{
           }
         }
       }
+    },
+    "/api/v1/courses/{id}/roster": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "List a course's roster with each student's current score",
+        "operationId": "getCourseRoster",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Roster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnyObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/roster/score": {
+      "patch": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Set one student's CA or exam score for a course+session",
+        "operationId": "upsertScore",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { studentId, sessionId, field: \"ca\"|\"exam\", value }. Locked once the sheet has been submitted for review.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/assignments": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Generic"
+        ],
+        "summary": "List a course's assignments",
+        "operationId": "listCourseAssignments",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Create an assignment for a course",
+        "operationId": "createAssignment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { title, dueAt (RFC3339), points, instructions }.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/assignments/{id}/submissions": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "List every student's submission for an assignment (grading view)",
+        "operationId": "listAssignmentSubmissions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Student"
+        ],
+        "summary": "Submit (or resubmit) your own work for an assignment",
+        "operationId": "submitAssignment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { fileName, note }. Resubmission is blocked once the lecturer has graded it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/assignment-submissions/{id}/grade": {
+      "patch": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Grade a student's assignment submission",
+        "operationId": "gradeSubmission",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { grade, feedback }.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/materials": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Generic"
+        ],
+        "summary": "List a course's shared materials",
+        "operationId": "listCourseMaterials",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Share a material with a course (metadata only, no file storage yet)",
+        "operationId": "addCourseMaterial",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { name, fileType, sizeLabel }.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{id}/posts": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Generic"
+        ],
+        "summary": "List a course's announcement stream",
+        "operationId": "listCoursePosts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Lecturer",
+          "Role: Student",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Post an announcement to a course",
+        "operationId": "addCoursePost",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { body }. The course's lecturer can always post; a student may only post if they're the recognized class rep for that course's department+level cohort.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/class-reps": {
+      "get": {
+        "tags": [
+          "Academic",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: ICT Administrator"
+        ],
+        "summary": "List class rep assignments",
+        "operationId": "listClassReps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "departmentId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ResourceList"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Recognize a student as the class rep for a department+level+session cohort",
+        "operationId": "assignClassRep",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { departmentId, level, sessionId, studentId }.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/class-reps/revoke": {
+      "post": {
+        "tags": [
+          "Academic",
+          "Role: Academic Adviser",
+          "Role: Head of Department",
+          "Role: ICT Administrator"
+        ],
+        "summary": "Revoke a class rep assignment",
+        "operationId": "revokeClassRep",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Body: { departmentId, level, sessionId, studentId }.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MutationBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
     }
   },
   "components": {
