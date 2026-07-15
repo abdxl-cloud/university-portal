@@ -12,6 +12,7 @@ import (
 	"formbuilder/backend/internal/auth"
 	"formbuilder/backend/internal/clinic"
 	"formbuilder/backend/internal/config"
+	"formbuilder/backend/internal/courses"
 	"formbuilder/backend/internal/fees"
 	"formbuilder/backend/internal/hostels"
 	"formbuilder/backend/internal/httpapi/middleware"
@@ -29,6 +30,7 @@ type API struct {
 	auth     *auth.Service
 	library  *library.Repo
 	academic *academic.Repo
+	crs      *courses.Repo
 	fees     *fees.Repo
 	regs     *registrations.Repo
 	hostels  *hostels.Repo
@@ -59,6 +61,7 @@ func New(opts Options) *API {
 		auth:     auth.NewService(opts.Pool, sessionTTL),
 		library:  library.NewRepo(opts.Pool),
 		academic: academic.NewRepo(opts.Pool),
+		crs:      courses.NewRepo(opts.Pool),
 		fees:     fees.NewRepo(opts.Pool),
 		regs:     registrations.NewRepo(opts.Pool),
 		hostels:  hostels.NewRepo(opts.Pool),
@@ -108,6 +111,18 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/course-registrations", a.submitCourseRegistration)
 	mux.HandleFunc("PATCH /api/v1/course-registrations/decision", a.decideCourseRegistration)
 	mux.HandleFunc("GET /api/v1/results", a.results)
+	mux.HandleFunc("POST /api/v1/results/submit", a.submitResults)
+	mux.HandleFunc("PATCH /api/v1/results/decision", a.decideResults)
+	mux.HandleFunc("POST /api/v1/results/condone", a.condoneResult)
+	mux.HandleFunc("GET /api/v1/workflow-stages", a.workflowStages)
+	mux.HandleFunc("PUT /api/v1/workflow-stages", a.setWorkflowStages)
+	mux.HandleFunc("GET /api/v1/level-review-progress", a.levelReviewProgress)
+	mux.HandleFunc("POST /api/v1/level-review-progress/compile", a.compileLevel)
+	mux.HandleFunc("PATCH /api/v1/level-review-progress/decision", a.decideLevelStage)
+	mux.HandleFunc("POST /api/v1/level-review-progress/publish", a.publishLevel)
+	mux.HandleFunc("GET /api/v1/student-cases", a.studentCases)
+	mux.HandleFunc("POST /api/v1/student-cases", a.raiseStudentCase)
+	mux.HandleFunc("PATCH /api/v1/student-cases/decision", a.decideStudentCase)
 	mux.HandleFunc("GET /api/v1/hostels/halls", a.moduleHandler("hostels", a.hostelHalls))
 	mux.HandleFunc("GET /api/v1/hostels/rooms", a.moduleHandler("hostels", a.hostelRooms))
 	mux.HandleFunc("GET /api/v1/hostels/beds", a.moduleHandler("hostels", a.hostelBeds))
