@@ -292,6 +292,58 @@ type AcademicRecord struct {
 	Carryovers []Carryover              `json:"carryovers"`
 }
 
+// WorkflowStage is one step in the configurable review chain a compiled
+// level's results walk through before publication (default: HOD -> Dean).
+// Roles lists every role that must sign off before the stage clears — a
+// single-role stage (like HOD) needs one approval, a board stage (like a
+// scrutiny board or senate) needs one from each listed role.
+type WorkflowStage struct {
+	ID       string   `json:"id"`
+	Position int      `json:"position"`
+	Roles    []string `json:"roles"`
+	Label    string   `json:"label"`
+}
+
+// LevelReviewProgress tracks where one department+level+session cohort's
+// compiled results sit in the WorkflowStage chain.
+type LevelReviewProgress struct {
+	ID           string    `json:"id"`
+	DepartmentID string    `json:"departmentId"`
+	Level        string    `json:"level"`
+	SessionID    string    `json:"sessionId"`
+	Stage        string    `json:"stage"`
+	ReviewIndex  int       `json:"reviewIndex"`
+	Archived     bool      `json:"archived"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// StudentCase is one of the five flagged-record types (deferment, absconded,
+// suspended, dex, teaching_practice) that needs a decision before a
+// student's record is treated as normal for that session/level.
+type StudentCase struct {
+	ID           string     `json:"id"`
+	StudentID    string     `json:"studentId"`
+	SessionID    string     `json:"sessionId"`
+	Level        string     `json:"level"`
+	Type         string     `json:"type"`
+	Status       string     `json:"status"`
+	Reason       string     `json:"reason"`
+	Details      string     `json:"details,omitempty"`
+	AttachmentID string     `json:"attachmentId,omitempty"`
+	RaisedBy     string     `json:"raisedBy"`
+	DecidedBy    string     `json:"decidedBy,omitempty"`
+	DecidedAt    *time.Time `json:"decidedAt,omitempty"`
+	CreatedAt    time.Time  `json:"createdAt"`
+}
+
+// Condonement records the 38-39 borderline-F override: the result stays
+// graded F but is excluded from the carryover list once condoned.
+type Condonement struct {
+	ResultID   string    `json:"resultId"`
+	CondonedBy string    `json:"condonedBy"`
+	CondonedAt time.Time `json:"condonedAt"`
+}
+
 type DashboardSnapshot struct {
 	Students         int `json:"students"`
 	Staff            int `json:"staff"`

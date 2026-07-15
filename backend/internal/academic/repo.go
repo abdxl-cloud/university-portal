@@ -279,13 +279,15 @@ func (r *Repo) AcademicRecord(ctx context.Context, studentID string) (portal.Aca
 	}
 
 	// carryovers: any F with no later result for the same course that isn't
-	// itself an F (a resit is a new row in a later session, same course_id)
+	// itself an F (a resit is a new row in a later session, same course_id),
+	// excluding results condoned via grade_condonements (the 38-39 override).
 	coRows, err := r.pool.Query(ctx, `
 		SELECT r.course_id::text, c.code, c.title, s.name || ' · ' || s.semester, r.total
 		FROM results r
 		JOIN courses c ON c.id = r.course_id
 		JOIN academic_sessions s ON s.id = r.session_id
 		WHERE r.student_id = $1::uuid AND r.grade = 'F'
+		  AND NOT EXISTS (SELECT 1 FROM grade_condonements gc WHERE gc.result_id = r.id)
 		  AND NOT EXISTS (
 		    SELECT 1 FROM results r2
 		    WHERE r2.student_id = r.student_id AND r2.course_id = r.course_id
