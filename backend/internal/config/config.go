@@ -25,6 +25,8 @@ type Config struct {
 	RefreshTokenTTL  string
 	IdentitySecret   string
 	IdentityTokenTTL time.Duration
+	StorageDir       string
+	StorageMaxUpload int64
 }
 
 func Load() Config {
@@ -43,6 +45,8 @@ func Load() Config {
 		RefreshTokenTTL:  env("REFRESH_TOKEN_TTL", "168h"),
 		IdentitySecret:   env("IDENTITY_SECRET", "dev-identity-secret-change-me"),
 		IdentityTokenTTL: durationEnv("IDENTITY_TOKEN_TTL", 5*time.Minute),
+		StorageDir:       env("STORAGE_DIR", "/data/storage"),
+		StorageMaxUpload: int64(intEnv("STORAGE_MAX_UPLOAD_BYTES", 50<<20)), // 50 MiB, matches the frontend's stated material-upload cap
 	}
 }
 

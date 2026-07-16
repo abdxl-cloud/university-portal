@@ -6,6 +6,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/api ./cmd/api
 
 FROM alpine:3.20
 RUN adduser -D -H appuser
+RUN mkdir -p /data/storage && chown -R appuser /data/storage
 WORKDIR /app
 COPY --from=build /out/api /app/api
 USER appuser
