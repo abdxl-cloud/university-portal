@@ -57,11 +57,15 @@ func main() {
 	defer pool.Close()
 	logger.Info("database ready")
 
-	app := httpapi.New(httpapi.Options{
+	app, err := httpapi.New(httpapi.Options{
 		Config: cfg,
 		Logger: logger,
 		Pool:   pool,
 	})
+	if err != nil {
+		logger.Error("failed to initialize api", "error", err)
+		os.Exit(1)
+	}
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -365,6 +365,7 @@ type CourseMaterial struct {
 	Name       string    `json:"name"`
 	FileType   string    `json:"fileType"`
 	SizeLabel  string    `json:"sizeLabel"`
+	DocumentID string    `json:"documentId,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
@@ -396,11 +397,23 @@ type AssignmentSubmission struct {
 	Status       string     `json:"status"`
 	FileName     string     `json:"fileName"`
 	Note         string     `json:"note,omitempty"`
+	DocumentID   string     `json:"documentId,omitempty"`
 	SubmittedAt  time.Time  `json:"submittedAt"`
 	Grade        *int       `json:"grade,omitempty"`
 	Feedback     string     `json:"feedback,omitempty"`
 	GradedBy     string     `json:"gradedBy,omitempty"`
 	GradedAt     *time.Time `json:"gradedAt,omitempty"`
+}
+
+// Document is an uploaded file's metadata. storage_key (where the bytes
+// actually live) is intentionally not exposed over JSON.
+type Document struct {
+	ID          string    `json:"id"`
+	OwnerUserID string    `json:"ownerUserId"`
+	Filename    string    `json:"filename"`
+	ContentType string    `json:"contentType"`
+	SizeBytes   int64     `json:"sizeBytes"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // ClassRep is a student recognized as the representative for a

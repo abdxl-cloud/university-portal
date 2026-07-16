@@ -23,6 +23,7 @@ import (
 	"formbuilder/backend/internal/ops"
 	"formbuilder/backend/internal/registrations"
 	"formbuilder/backend/internal/staff"
+	"formbuilder/backend/internal/storage"
 )
 
 type API struct {
@@ -33,6 +34,7 @@ type API struct {
 	academic *academic.Repo
 	crs      *courses.Repo
 	stf      *staff.Repo
+	stor     *storage.Repo
 	fees     *fees.Repo
 	regs     *registrations.Repo
 	hostels  *hostels.Repo
@@ -48,7 +50,7 @@ type Options struct {
 	Pool   *pgxpool.Pool
 }
 
-func New(opts Options) *API {
+func New(opts Options) (*API, error) {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -56,6 +58,10 @@ func New(opts Options) *API {
 	sessionTTL, err := time.ParseDuration(opts.Config.RefreshTokenTTL)
 	if err != nil {
 		sessionTTL = 168 * time.Hour
+	}
+	diskStore, err := storage.NewDiskStorer(opts.Config.StorageDir)
+	if err != nil {
+		return nil, err
 	}
 	return &API{
 		cfg:      opts.Config,
@@ -65,6 +71,7 @@ func New(opts Options) *API {
 		academic: academic.NewRepo(opts.Pool),
 		crs:      courses.NewRepo(opts.Pool),
 		stf:      staff.NewRepo(opts.Pool),
+		stor:     storage.NewRepo(opts.Pool, diskStore),
 		fees:     fees.NewRepo(opts.Pool),
 		regs:     registrations.NewRepo(opts.Pool),
 		hostels:  hostels.NewRepo(opts.Pool),
@@ -72,7 +79,7 @@ func New(opts Options) *API {
 		ops:      ops.NewRepo(opts.Pool),
 		modules:  modules.NewRepo(opts.Pool),
 		ident:    identity.New(opts.Config.IdentitySecret, opts.Config.IdentityTokenTTL),
-	}
+	}, nil
 }
 
 // CleanupExpiredSessions prunes expired session rows. Intended to be called
@@ -140,6 +147,9 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/class-reps", a.classReps)
 	mux.HandleFunc("POST /api/v1/class-reps", a.assignClassRep)
 	mux.HandleFunc("POST /api/v1/class-reps/revoke", a.revokeClassRep)
+	mux.HandleFunc("POST /api/v1/documents", a.uploadDocument)
+	mux.HandleFunc("GET /api/v1/documents/{id}", a.documentMeta)
+	mux.HandleFunc("GET /api/v1/documents/{id}/download", a.downloadDocument)
 	mux.HandleFunc("GET /api/v1/hostels/halls", a.moduleHandler("hostels", a.hostelHalls))
 	mux.HandleFunc("GET /api/v1/hostels/rooms", a.moduleHandler("hostels", a.hostelRooms))
 	mux.HandleFunc("GET /api/v1/hostels/beds", a.moduleHandler("hostels", a.hostelBeds))
