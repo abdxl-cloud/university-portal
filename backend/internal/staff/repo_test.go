@@ -211,7 +211,7 @@ func TestAssignmentsSubmissionsGrading(t *testing.T) {
 		t.Fatalf("expected 1 assignment, got total=%d len=%d", total, len(list))
 	}
 
-	sub, err := r.Submit(ctx, asg.ID, f.Student1ID, "work.pdf", "here it is", f.Student1User)
+	sub, err := r.Submit(ctx, asg.ID, f.Student1ID, "work.pdf", "here it is", "", f.Student1User)
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestAssignmentsSubmissionsGrading(t *testing.T) {
 		t.Fatalf("unexpected graded submission: %+v", graded)
 	}
 
-	if _, err := r.Submit(ctx, asg.ID, f.Student1ID, "resubmit.pdf", "", f.Student1User); err == nil {
+	if _, err := r.Submit(ctx, asg.ID, f.Student1ID, "resubmit.pdf", "", "", f.Student1User); err == nil {
 		t.Fatal("expected resubmission after grading to be rejected")
 	}
 }
@@ -248,10 +248,10 @@ func TestMaterialsAndPosts(t *testing.T) {
 	r := NewRepo(f.pool)
 	ctx := context.Background()
 
-	if _, err := r.AddMaterial(ctx, f.CourseID, "slides.pdf", "PDF", "2.1 MB", "not-the-lecturer", f.LecturerUser); err == nil {
+	if _, err := r.AddMaterial(ctx, f.CourseID, "slides.pdf", "PDF", "2.1 MB", "", "not-the-lecturer", f.LecturerUser); err == nil {
 		t.Fatal("expected forbidden for wrong lecturer")
 	}
-	if _, err := r.AddMaterial(ctx, f.CourseID, "slides.pdf", "PDF", "2.1 MB", f.LecturerID, f.LecturerUser); err != nil {
+	if _, err := r.AddMaterial(ctx, f.CourseID, "slides.pdf", "PDF", "2.1 MB", "", f.LecturerID, f.LecturerUser); err != nil {
 		t.Fatalf("add material: %v", err)
 	}
 	mats, total, err := r.Materials(ctx, 50, 0, f.CourseID)

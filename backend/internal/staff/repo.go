@@ -64,6 +64,28 @@ func checkLecturer(ctx context.Context, q db.Conn, courseID, staffID string) err
 	return nil
 }
 
+// checkDocumentOwner validates that documentID (if non-empty) belongs to
+// ownerUserID. A light cross-table check rather than importing
+// internal/storage, matching how other domains reference tables they don't
+// own outright (e.g. courses joining departments).
+func checkDocumentOwner(ctx context.Context, q db.Conn, documentID, ownerUserID string) error {
+	if documentID == "" {
+		return nil
+	}
+	var actualOwner string
+	err := q.QueryRow(ctx, `SELECT owner_user_id::text FROM documents WHERE id=$1::uuid`, documentID).Scan(&actualOwner)
+	if db.IsNotFound(err) {
+		return apperr.NotFound("document not found")
+	}
+	if err != nil {
+		return db.Translate(err)
+	}
+	if actualOwner != ownerUserID {
+		return apperr.Forbidden("document does not belong to you")
+	}
+	return nil
+}
+
 // --- roster + score entry ---
 
 // Roster lists every student with an approved registration for courseID in
@@ -202,7 +224,7 @@ func (r *Repo) Submissions(ctx context.Context, limit, offset int, assignmentID 
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT sub.id::text, sub.assignment_id::text, sub.student_id::text, s.matric_no, s.first_name || ' ' || s.last_name,
-		       sub.status, sub.file_name, sub.note, sub.submitted_at, sub.grade, sub.feedback, COALESCE(sub.graded_by::text, ''), sub.graded_at
+		       sub.status, sub.file_name, sub.note, COALESCE(sub.document_id::text, ''), sub.submitted_at, sub.grade, sub.feedback, COALESCE(sub.graded_by::text, ''), sub.graded_at
 		FROM assignment_submissions sub
 		JOIN students s ON s.id = sub.student_id
 		WHERE sub.assignment_id=$3::uuid ORDER BY sub.submitted_at DESC LIMIT $1 OFFSET $2`, limit, offset, assignmentID)
@@ -214,7 +236,7 @@ func (r *Repo) Submissions(ctx context.Context, limit, offset int, assignmentID 
 	for rows.Next() {
 		var sub portal.AssignmentSubmission
 		if err := rows.Scan(&sub.ID, &sub.AssignmentID, &sub.StudentID, &sub.MatricNo, &sub.StudentName,
-			&sub.Status, &sub.FileName, &sub.Note, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt); err != nil {
+			&sub.Status, &sub.FileName, &sub.Note, &sub.DocumentID, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, sub)
@@ -224,8 +246,10 @@ func (r *Repo) Submissions(ctx context.Context, limit, offset int, assignmentID 
 
 // Submit records (or resubmits) a student's work for an assignment. Once
 // graded, resubmission is no longer allowed (matches the frontend, which
-// only offers "Resubmit" while status is "submitted").
-func (r *Repo) Submit(ctx context.Context, assignmentID, studentID, fileName, note, actorUserID string) (portal.AssignmentSubmission, error) {
+// only offers "Resubmit" while status is "submitted"). documentID is
+// optional -- a real uploaded file (see internal/storage), which must
+// belong to the submitting student if given.
+func (r *Repo) Submit(ctx context.Context, assignmentID, studentID, fileName, note, documentID, actorUserID string) (portal.AssignmentSubmission, error) {
 	if fileName == "" {
 		return portal.AssignmentSubmission{}, apperr.Invalid("fileName is required")
 	}
@@ -238,14 +262,17 @@ func (r *Repo) Submit(ctx context.Context, assignmentID, studentID, fileName, no
 		if existingStatus == "graded" {
 			return portal.AssignmentSubmission{}, apperr.Conflict("this assignment has already been graded")
 		}
+		if err := checkDocumentOwner(ctx, tx, documentID, actorUserID); err != nil {
+			return portal.AssignmentSubmission{}, err
+		}
 		var sub portal.AssignmentSubmission
 		err = tx.QueryRow(ctx, `
-			INSERT INTO assignment_submissions (assignment_id, student_id, status, file_name, note, submitted_at)
-			VALUES ($1::uuid, $2::uuid, 'submitted', $3, $4, now())
-			ON CONFLICT (assignment_id, student_id) DO UPDATE SET file_name=excluded.file_name, note=excluded.note, status='submitted', submitted_at=now()
-			RETURNING id::text, assignment_id::text, student_id::text, status, file_name, note, submitted_at, grade, feedback, COALESCE(graded_by::text, ''), graded_at`,
-			assignmentID, studentID, fileName, note).
-			Scan(&sub.ID, &sub.AssignmentID, &sub.StudentID, &sub.Status, &sub.FileName, &sub.Note, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt)
+			INSERT INTO assignment_submissions (assignment_id, student_id, status, file_name, note, document_id, submitted_at)
+			VALUES ($1::uuid, $2::uuid, 'submitted', $3, $4, $5::uuid, now())
+			ON CONFLICT (assignment_id, student_id) DO UPDATE SET file_name=excluded.file_name, note=excluded.note, document_id=excluded.document_id, status='submitted', submitted_at=now()
+			RETURNING id::text, assignment_id::text, student_id::text, status, file_name, note, COALESCE(document_id::text, ''), submitted_at, grade, feedback, COALESCE(graded_by::text, ''), graded_at`,
+			assignmentID, studentID, fileName, note, db.UUIDOrNil(documentID)).
+			Scan(&sub.ID, &sub.AssignmentID, &sub.StudentID, &sub.Status, &sub.FileName, &sub.Note, &sub.DocumentID, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt)
 		if err != nil {
 			return portal.AssignmentSubmission{}, db.Translate(err)
 		}
@@ -279,9 +306,9 @@ func (r *Repo) GradeSubmission(ctx context.Context, submissionID string, grade i
 		err = tx.QueryRow(ctx, `
 			UPDATE assignment_submissions SET status='graded', grade=$2, feedback=$3, graded_by=$4::uuid, graded_at=now()
 			WHERE id=$1::uuid
-			RETURNING id::text, assignment_id::text, student_id::text, status, file_name, note, submitted_at, grade, feedback, COALESCE(graded_by::text, ''), graded_at`,
+			RETURNING id::text, assignment_id::text, student_id::text, status, file_name, note, COALESCE(document_id::text, ''), submitted_at, grade, feedback, COALESCE(graded_by::text, ''), graded_at`,
 			submissionID, grade, feedback, actorUserID).
-			Scan(&sub.ID, &sub.AssignmentID, &sub.StudentID, &sub.Status, &sub.FileName, &sub.Note, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt)
+			Scan(&sub.ID, &sub.AssignmentID, &sub.StudentID, &sub.Status, &sub.FileName, &sub.Note, &sub.DocumentID, &sub.SubmittedAt, &sub.Grade, &sub.Feedback, &sub.GradedBy, &sub.GradedAt)
 		if err != nil {
 			return portal.AssignmentSubmission{}, db.Translate(err)
 		}
@@ -298,7 +325,7 @@ func (r *Repo) Materials(ctx context.Context, limit, offset int, courseID string
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id::text, course_id::text, uploaded_by::text, name, file_type, size_label, created_at
+		SELECT id::text, course_id::text, uploaded_by::text, name, file_type, size_label, COALESCE(document_id::text, ''), created_at
 		FROM course_materials WHERE course_id=$3::uuid ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset, courseID)
 	if err != nil {
 		return nil, 0, err
@@ -307,7 +334,7 @@ func (r *Repo) Materials(ctx context.Context, limit, offset int, courseID string
 	out := []portal.CourseMaterial{}
 	for rows.Next() {
 		var m portal.CourseMaterial
-		if err := rows.Scan(&m.ID, &m.CourseID, &m.UploadedBy, &m.Name, &m.FileType, &m.SizeLabel, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.CourseID, &m.UploadedBy, &m.Name, &m.FileType, &m.SizeLabel, &m.DocumentID, &m.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, m)
@@ -315,10 +342,12 @@ func (r *Repo) Materials(ctx context.Context, limit, offset int, courseID string
 	return out, total, rows.Err()
 }
 
-// AddMaterial records a material's metadata. Actual file bytes aren't
-// stored yet -- there's no storage domain to put them in (that's a separate,
-// not-yet-built phase); the frontend already treats uploads as demo-only.
-func (r *Repo) AddMaterial(ctx context.Context, courseID, name, fileType, sizeLabel, staffID, actorUserID string) (portal.CourseMaterial, error) {
+// AddMaterial records a material's metadata, optionally pointing at a real
+// uploaded document (see internal/storage), which must belong to the
+// uploading staff member if given. Without one, this stays exactly the
+// client-supplied-metadata flow the frontend already used (it treats
+// uploads as demo-only).
+func (r *Repo) AddMaterial(ctx context.Context, courseID, name, fileType, sizeLabel, documentID, staffID, actorUserID string) (portal.CourseMaterial, error) {
 	if name == "" {
 		return portal.CourseMaterial{}, apperr.Invalid("name is required")
 	}
@@ -326,13 +355,16 @@ func (r *Repo) AddMaterial(ctx context.Context, courseID, name, fileType, sizeLa
 		if err := checkLecturer(ctx, tx, courseID, staffID); err != nil {
 			return portal.CourseMaterial{}, err
 		}
+		if err := checkDocumentOwner(ctx, tx, documentID, actorUserID); err != nil {
+			return portal.CourseMaterial{}, err
+		}
 		var m portal.CourseMaterial
 		err := tx.QueryRow(ctx, `
-			INSERT INTO course_materials (course_id, uploaded_by, name, file_type, size_label)
-			VALUES ($1::uuid, $2::uuid, $3, $4, $5)
-			RETURNING id::text, course_id::text, uploaded_by::text, name, file_type, size_label, created_at`,
-			courseID, actorUserID, name, fileType, sizeLabel).
-			Scan(&m.ID, &m.CourseID, &m.UploadedBy, &m.Name, &m.FileType, &m.SizeLabel, &m.CreatedAt)
+			INSERT INTO course_materials (course_id, uploaded_by, name, file_type, size_label, document_id)
+			VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)
+			RETURNING id::text, course_id::text, uploaded_by::text, name, file_type, size_label, COALESCE(document_id::text, ''), created_at`,
+			courseID, actorUserID, name, fileType, sizeLabel, db.UUIDOrNil(documentID)).
+			Scan(&m.ID, &m.CourseID, &m.UploadedBy, &m.Name, &m.FileType, &m.SizeLabel, &m.DocumentID, &m.CreatedAt)
 		if err != nil {
 			return portal.CourseMaterial{}, db.Translate(err)
 		}

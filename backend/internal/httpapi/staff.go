@@ -157,8 +157,9 @@ func (a *API) assignmentSubmissions(w http.ResponseWriter, r *http.Request) {
 }
 
 type submitAssignmentRequest struct {
-	FileName string `json:"fileName"`
-	Note     string `json:"note"`
+	FileName   string `json:"fileName"`
+	Note       string `json:"note"`
+	DocumentID string `json:"documentId"`
 }
 
 func (r submitAssignmentRequest) Validate() error {
@@ -169,7 +170,8 @@ func (r submitAssignmentRequest) Validate() error {
 }
 
 // submitAssignment serves POST /api/v1/assignments/{id}/submissions: a
-// student submits (or resubmits) their own work.
+// student submits (or resubmits) their own work. documentId is optional --
+// the id returned by POST /api/v1/documents after a real upload.
 func (a *API) submitAssignment(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "student")
 	if !ok {
@@ -183,7 +185,7 @@ func (a *API) submitAssignment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sub, err := a.stf.Submit(r.Context(), r.PathValue("id"), scope, req.FileName, req.Note, user.ID)
+	sub, err := a.stf.Submit(r.Context(), r.PathValue("id"), scope, req.FileName, req.Note, req.DocumentID, user.ID)
 	writeMutation(w, err, map[string]any{"submission": sub})
 }
 
@@ -240,9 +242,10 @@ func (a *API) materials(w http.ResponseWriter, r *http.Request) {
 }
 
 type addMaterialRequest struct {
-	Name      string `json:"name"`
-	FileType  string `json:"fileType"`
-	SizeLabel string `json:"sizeLabel"`
+	Name       string `json:"name"`
+	FileType   string `json:"fileType"`
+	SizeLabel  string `json:"sizeLabel"`
+	DocumentID string `json:"documentId"`
 }
 
 func (r addMaterialRequest) Validate() error {
@@ -252,8 +255,9 @@ func (r addMaterialRequest) Validate() error {
 	return nil
 }
 
-// addMaterial serves POST /api/v1/courses/{id}/materials. Metadata only --
-// see internal/staff.AddMaterial for why there's no file storage yet.
+// addMaterial serves POST /api/v1/courses/{id}/materials. documentId is
+// optional -- the id returned by POST /api/v1/documents after a real
+// upload; without one this is just client-supplied display metadata.
 func (a *API) addMaterial(w http.ResponseWriter, r *http.Request) {
 	user, ok := a.requireRole(w, r, "lecturer", "ict")
 	if !ok {
@@ -271,7 +275,7 @@ func (a *API) addMaterial(w http.ResponseWriter, r *http.Request) {
 		}
 		staffID = scope
 	}
-	m, err := a.stf.AddMaterial(r.Context(), r.PathValue("id"), req.Name, req.FileType, req.SizeLabel, staffID, user.ID)
+	m, err := a.stf.AddMaterial(r.Context(), r.PathValue("id"), req.Name, req.FileType, req.SizeLabel, req.DocumentID, staffID, user.ID)
 	writeMutation(w, err, map[string]any{"material": m})
 }
 
