@@ -91,6 +91,10 @@ const openAPISpec = `{
       "description": "Approvals, notifications, support, and audit logs"
     },
     {
+      "name": "Storage",
+      "description": "Document uploads (deferment attachments, assignment submissions, course materials)"
+    },
+    {
       "name": "Generic",
       "description": "Available to any signed-in user regardless of role (or public); not specific to one portal"
     },
@@ -2544,6 +2548,123 @@ const openAPISpec = `{
           }
         }
       }
+    },
+    "/api/v1/documents": {
+      "post": {
+        "tags": [
+          "Storage",
+          "Generic"
+        ],
+        "summary": "Upload a document",
+        "operationId": "uploadDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "multipart/form-data with a single \"file\" field. The caller becomes the document's owner.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MutationResult"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}": {
+      "get": {
+        "tags": [
+          "Storage",
+          "Generic"
+        ],
+        "summary": "Get a document's metadata",
+        "operationId": "getDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Visible to the document's owner, or any non-student staff role.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnyObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}/download": {
+      "get": {
+        "tags": [
+          "Storage",
+          "Generic"
+        ],
+        "summary": "Download a document's bytes",
+        "operationId": "downloadDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Visible to the document's owner, or any non-student staff role.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2823,7 +2944,8 @@ const openAPISpec = `{
         "Library",
         "Identity",
         "Clinic",
-        "Operations"
+        "Operations",
+        "Storage"
       ]
     }
   ]
