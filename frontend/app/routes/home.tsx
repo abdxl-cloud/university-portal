@@ -1,13 +1,18 @@
+import { useNavigate } from "react-router";
+import { PublicHome } from "../features/student/public";
+import { publicPath } from "../nav";
+import { useTheme } from "../theme";
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "FUTECH — Federal University of Technology" },
+    { name: "description", content: "Fees, course registration, results, hostel allocation and admissions in one portal." },
   ];
 }
 
 export default function Home() {
-  return <Welcome />;
+  const navigate = useNavigate();
+  const { dark, setDark } = useTheme();
+  return <PublicHome go={(d) => navigate(publicPath(d))} dark={dark} setDark={setDark} />;
 }
