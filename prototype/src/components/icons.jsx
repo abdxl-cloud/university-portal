@@ -1,5 +1,5 @@
 import React from "react";
-/* Icon set — simple stroke icons (lucide-ish), 24x24 viewBox */
+/* Icon set: simple stroke icons (lucide-ish), 24x24 viewBox */
 const ICON_PATHS = {
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',

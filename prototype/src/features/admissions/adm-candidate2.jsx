@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Icon, SPill } = window;
-/* Admissions — CANDIDATE screens (overview, stepped form, status, onboarding) */
+/* Admissions: CANDIDATE screens (overview, stepped form, status, onboarding) */
 
 function admPHead(title, sub, children) {
   return (

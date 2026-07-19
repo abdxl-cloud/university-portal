@@ -708,6 +708,9 @@ function IctSessions({ store, actions }) {
   const se = store.session || {};
   const [creating, setCreating] = React.useState(false);
   const [viewing, setViewing] = React.useState(null);
+  const committed = { semester: se.semester, registration: se.registration !== false, fees: se.fees !== false, hostel: se.hostel !== false, results: !!se.results, releaseMode: se.releaseMode || "batch" };
+  const [draft, setDraft] = React.useState(committed);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(committed);
   const created = (store.roles && store.roles.ict && store.roles.ict.sessions) || [];
   const allSessions = [...created.slice().reverse(), ...SESSIONS];
   const windows = [
@@ -729,11 +732,11 @@ function IctSessions({ store, actions }) {
             <div className="u-row" style={{ gap: 10 }}><div className="u-h3">{se.current || "2025/2026"} session</div><Tag variant="success" dot>Active</Tag></div>
             <div className="u-meta" style={{ marginTop: 3 }}>{se.semester || "First Semester"}</div>
           </div>
-          <Seg value={se.semester} onChange={actions.setSemester} options={[{ value: "First Semester", label: "First" }, { value: "Second Semester", label: "Second" }]} />
+          <Seg value={draft.semester} onChange={(v) => setDraft({ ...draft, semester: v })} options={[{ value: "First Semester", label: "First" }, { value: "Second Semester", label: "Second" }]} />
         </div>
         <div className="u-grid u-grid--2" style={{ gap: 10 }}>
           {windows.map((w) => {
-            const on = w.key === "results" ? !!se.results : se[w.key] !== false;
+            const on = draft[w.key];
             return (
               <div key={w.key} className="u-row" style={{ gap: 12, padding: "13px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
                 <span className="u-icon" style={{ background: on ? "var(--accent-soft)" : "var(--bg-muted)", color: on ? "var(--accent-soft-fg)" : "var(--fg-muted)" }}><Icon name={w.icon} size={15} /></span>
@@ -741,7 +744,7 @@ function IctSessions({ store, actions }) {
                   <div style={{ fontWeight: 500, fontSize: 13.5 }}>{w.label}</div>
                   <div className="u-meta">{on ? "Open" : "Closed"}{w.note ? " · " + w.note : ""}</div>
                 </div>
-                <Switch on={on} onClick={() => w.key === "results" ? actions.publishResults(!se.results) : actions.toggleWindow(w.key)} />
+                <Switch on={on} onClick={() => setDraft({ ...draft, [w.key]: !draft[w.key] })} />
               </div>
             );
           })}
@@ -749,11 +752,21 @@ function IctSessions({ store, actions }) {
         <div className="u-row u-wrap" style={{ gap: 12, marginTop: 14, padding: "13px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 500, fontSize: 13.5 }}>Result release policy</div>
-            <div className="u-meta">{(se.releaseMode || "batch") === "batch" ? "Whole levels are released at once after Senate approval." : "Approved courses are released one by one; GPAs stay provisional until the level completes."}</div>
+            <div className="u-meta">{draft.releaseMode === "batch" ? "Whole levels are released at once after Senate approval." : "Approved courses are released one by one; GPAs stay provisional until the level completes."}</div>
           </div>
-          <Seg value={se.releaseMode || "batch"} onChange={actions.setReleaseMode} options={[{ value: "batch", label: "Batch by level" }, { value: "course", label: "Per course" }]} />
+          <Seg value={draft.releaseMode} onChange={(v) => setDraft({ ...draft, releaseMode: v })} options={[{ value: "batch", label: "Batch by level" }, { value: "course", label: "Per course" }]} />
         </div>
-        <div className="u-meta" style={{ marginTop: 12 }}><Icon name="info" size={13} /> Changes take effect immediately in every student portal.</div>
+        <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+          {dirty ? (
+            <>
+              <Btn variant="accent" icon="check" onClick={() => actions.setSessionSettings(draft)}>Save changes</Btn>
+              <Btn variant="ghost" onClick={() => setDraft(committed)}>Discard</Btn>
+              <span className="u-meta">Unsaved — nothing below has changed for students or staff yet.</span>
+            </>
+          ) : (
+            <span className="u-meta"><Icon name="info" size={13} /> Saved changes take effect immediately in every student portal.</span>
+          )}
+        </div>
       </Card>
 
       <Card>
@@ -814,17 +827,19 @@ const WORKFLOW_ROLE_LABELS = {
   registry: "Registry", admissions: "Admissions", librarian: "Librarian", clinic: "Medical Officer", ict: "ICT / Super Admin",
 };
 function IctWorkflow({ store, actions }) {
-  const stages = (store.workflow && store.workflow.stages) || [];
+  const saved = (store.workflow && store.workflow.stages) || [];
+  const [draft, setDraft] = React.useState(saved);
   const [adding, setAdding] = React.useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   const move = (i, dir) => {
-    const next = stages.slice();
+    const next = draft.slice();
     const j = i + dir;
     if (j < 0 || j >= next.length) return;
     [next[i], next[j]] = [next[j], next[i]];
-    actions.setWorkflowStages(next);
+    setDraft(next);
   };
-  const remove = (i) => actions.setWorkflowStages(stages.filter((_, k) => k !== i));
-  const relabel = (i, label) => actions.setWorkflowStages(stages.map((s, k) => k === i ? { ...s, label } : s));
+  const remove = (i) => setDraft(draft.filter((_, k) => k !== i));
+  const relabel = (i, label) => setDraft(draft.map((s, k) => k === i ? { ...s, label } : s));
 
   return (
     <div className="u-content">
@@ -850,11 +865,11 @@ function IctWorkflow({ store, actions }) {
 
       <Card className="u-pad">
         <div className="u-h3" style={{ marginBottom: 12 }}>Review stages, in order</div>
-        {stages.length === 0 ? (
+        {draft.length === 0 ? (
           <Empty icon="chart" title="No review stages configured" sub="Compiled levels will go straight to Senate and release. Add a stage to require review first." />
         ) : (
           <div className="u-stack" style={{ gap: 8 }}>
-            {stages.map((s, i) => (
+            {draft.map((s, i) => (
               <div key={s.id} className="u-row u-wrap" style={{ gap: 12, padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", justifyContent: "space-between" }}>
                 <div className="u-row" style={{ gap: 12, minWidth: 0 }}>
                   <span className="u-icon u-icon--plain" style={{ width: 30, height: 30 }}><span className="u-num" style={{ fontWeight: 700, fontSize: 13 }}>{i + 1}</span></span>
@@ -865,7 +880,7 @@ function IctWorkflow({ store, actions }) {
                 </div>
                 <div className="u-row" style={{ gap: 6 }}>
                   <Btn variant="ghost" size="sm" disabled={i === 0} onClick={() => move(i, -1)}>↑</Btn>
-                  <Btn variant="ghost" size="sm" disabled={i === stages.length - 1} onClick={() => move(i, 1)}>↓</Btn>
+                  <Btn variant="ghost" size="sm" disabled={i === draft.length - 1} onClick={() => move(i, 1)}>↓</Btn>
                   <Btn variant="secondary" size="sm" onClick={() => remove(i)}>Remove</Btn>
                 </div>
               </div>
@@ -873,9 +888,19 @@ function IctWorkflow({ store, actions }) {
           </div>
         )}
       </Card>
-      <div className="u-meta" style={{ marginTop: 12 }}><Icon name="info" size={13} /> Changes take effect immediately. A level already mid-review keeps its place in the old sequence; only newly compiled levels use the new one.</div>
+      <div className="u-row u-wrap" style={{ gap: 10, marginTop: 12, alignItems: "center" }}>
+        {dirty ? (
+          <>
+            <Btn variant="accent" icon="check" onClick={() => actions.setWorkflowStages(draft)}>Save changes</Btn>
+            <Btn variant="ghost" onClick={() => setDraft(saved)}>Discard</Btn>
+            <span className="u-meta">Unsaved. A level already mid-review keeps its place in the old sequence either way; only newly compiled levels use the saved one.</span>
+          </>
+        ) : (
+          <span className="u-meta"><Icon name="info" size={13} /> Nothing to save. A level already mid-review keeps its place in the old sequence; only newly compiled levels use a change once saved.</span>
+        )}
+      </div>
 
-      {adding && <AddWorkflowStageModal existing={stages} onClose={() => setAdding(false)} onAdd={(rec) => { actions.setWorkflowStages([...stages, rec]); setAdding(false); }} />}
+      {adding && <AddWorkflowStageModal existing={draft} onClose={() => setAdding(false)} onAdd={(rec) => { setDraft([...draft, rec]); setAdding(false); }} />}
     </div>
   );
 }

@@ -418,12 +418,14 @@ function defermentErrors(details) {
 function DefermentModal({ actions, onClose }) {
   const [reason, setReason] = React.useState(DEFERMENT_REASONS[0]);
   const [details, setDetails] = React.useState("");
+  const [file, setFile] = React.useState(null);
   const [touched, setTouched] = React.useState(false);
+  const inputRef = React.useRef(null);
   const errs = defermentErrors(details);
   const submit = () => {
     setTouched(true);
     if (errs.details) return;
-    actions.requestDeferment(reason, details.trim());
+    actions.requestDeferment(reason, details.trim(), file);
     onClose();
   };
   return (
@@ -438,7 +440,20 @@ function DefermentModal({ actions, onClose }) {
             value={details} onChange={(e) => setDetails(e.target.value)} onBlur={() => setTouched(true)}
             placeholder="e.g. I have been hospitalised since…" />
         </Field>
-        <div className="u-meta">Approving excludes this semester from your GPA. You'll be notified either way.</div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Supporting document (optional)</div>
+          <input ref={inputRef} type="file" style={{ display: "none" }} onChange={(e) => setFile(e.target.files[0]?.name || null)} />
+          <button type="button" className="u-row" onClick={() => inputRef.current?.click()}
+            style={{ width: "100%", gap: 12, padding: "14px", border: "1.5px dashed var(--border-strong)", borderRadius: "var(--r-md)", background: "var(--bg-sunken)", cursor: "pointer", color: "inherit", textAlign: "left" }}>
+            <span className="u-icon"><Icon name="doc" size={16} /></span>
+            <div className="u-grow">
+              <div style={{ fontWeight: 500, fontSize: 13.5 }}>{file || "Attach a medical letter, admission note, etc."}</div>
+              <div className="u-meta">PDF, JPG, PNG: up to 10 MB</div>
+            </div>
+            {file && <Icon name="check" size={16} style={{ color: "var(--success)" }} />}
+          </button>
+        </div>
+        <div className="u-meta">Approving excludes this semester from your GPA. You'll be notified either way. Demo only: your file is not uploaded anywhere.</div>
         <Btn variant="accent" size="lg" onClick={submit} style={{ width: "100%" }}>Submit request</Btn>
       </div>
     </Modal>

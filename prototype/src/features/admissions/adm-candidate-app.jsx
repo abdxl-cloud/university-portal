@@ -1,6 +1,6 @@
 import React from "react";
 const { CandidateForm, CandidateGate, CandidateOnboarding, CandidateOverview, CandidateShell, CandidateStatus } = window;
-/* Admissions — CANDIDATE view router (gate → shell → screens) */
+/* Admissions: CANDIDATE view router (gate → shell → screens) */
 
 function CandidateApp({ store, actions, dark, setDark, onExit, route: routeFromUrl, onRouteChange }) {
   const a = store.admissions || {};

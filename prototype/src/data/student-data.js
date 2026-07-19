@@ -1,4 +1,4 @@
-/* FUTECH Student Portal — mock data store */
+/* FUTECH Student Portal: mock data store */
 (function () {
   const STUDENT = {
     name: "Adaeze N. Okeke",
@@ -13,7 +13,7 @@
     semester: "First Semester",
     entryMode: "UTME",
     standing: "Good Standing",
-    cgpa: 4.21,
+    cgpa: 4.04,
     email: "adaeze.okeke@st.futech.edu.ng",
     phone: "+234 803 555 0142",
     gender: "Female",
@@ -56,7 +56,7 @@
   const PAYMENT_HISTORY = [
     { id: "h1", label: "School Fees", amount: 96500, ref: "PAY-9KX2A1", date: "12 Oct 2024", method: "Debit card", category: "Obligatory", session: "2024/2025" },
     { id: "h2", label: "Acceptance Fee", amount: 25000, ref: "PAY-3MB7QER", date: "02 Sep 2022", method: "Bank transfer", category: "Obligatory", session: "2022/2023" },
-    { id: "h3", label: "Hostel Fee — Flora Shaw Hall", amount: 38000, ref: "HST-7720KL", date: "15 Oct 2024", method: "USSD", category: "Accommodation", session: "2024/2025" },
+    { id: "h3", label: "Hostel Fee: Flora Shaw Hall", amount: 38000, ref: "HST-7720KL", date: "15 Oct 2024", method: "USSD", category: "Accommodation", session: "2024/2025" },
   ];
 
   // Courses available for registration this semester (300L CSC, 1st sem)
@@ -157,7 +157,7 @@
     return rooms;
   }
 
-  // Results — past semesters (released), current pending
+  // Results: past semesters (released), current pending
   const RESULTS = [
     {
       session: "2024/2025", semester: "Second Semester", level: "200 Level",
@@ -239,8 +239,8 @@
   ];
 
   const GPA_HISTORY = [
-    { term: "100L · 1st", gpa: 3.78 },
-    { term: "100L · 2nd", gpa: 3.95 },
+    { term: "100L · 1st", gpa: 3.74 },
+    { term: "100L · 2nd", gpa: 3.90 },
     { term: "200L · 1st", gpa: 4.10 },
     { term: "200L · 2nd", gpa: 4.33 },
   ];
@@ -248,7 +248,7 @@
   const NOTIFICATIONS = [
     { id: "n1", icon: "wallet", tone: "accent", title: "School fees window closes soon", body: "Pay your 2025/2026 fees before October 31 to avoid a ₦5,000 penalty.", time: "2h ago", unread: true },
     { id: "n2", icon: "book", tone: "warning", title: "Course registration deadline extended", body: "Level advisers will review submissions until November 7.", time: "Yesterday", unread: true },
-    { id: "n3", icon: "bed", tone: "success", title: "Female hostel allocation now open", body: "You are eligible — secure a bed space in Queen Amina or Flora Shaw Hall.", time: "2 days ago", unread: true },
+    { id: "n3", icon: "bed", tone: "success", title: "Female hostel allocation now open", body: "You are eligible: secure a bed space in Queen Amina or Flora Shaw Hall.", time: "2 days ago", unread: true },
     { id: "n4", icon: "calendar", tone: "neutral", title: "Exam timetable published", body: "Your first-semester exam schedule is ready. Add it to your calendar.", time: "4 days ago", unread: false },
     { id: "n5", icon: "chart", tone: "neutral", title: "200L second-semester results released", body: "Your GPA for the period is 4.33. View the full breakdown.", time: "1 week ago", unread: false },
   ];
@@ -263,30 +263,30 @@
       ],
       materials: [
         { name: "Course outline & grading.pdf", type: "PDF", size: "180 KB", date: "Oct 1" },
-        { name: "Week 1 — Complexity & Big-O.pdf", type: "PDF", size: "1.2 MB", date: "Oct 6" },
-        { name: "Week 2 — Linked lists & stacks.pdf", type: "PDF", size: "2.4 MB", date: "Oct 13" },
+        { name: "Week 1: Complexity & Big-O.pdf", type: "PDF", size: "1.2 MB", date: "Oct 6" },
+        { name: "Week 2: Linked lists & stacks.pdf", type: "PDF", size: "2.4 MB", date: "Oct 13" },
         { name: "Lab 1 starter code.zip", type: "ZIP", size: "44 KB", date: "Oct 13" },
         { name: "Trees & graphs (slides).pptx", type: "PPTX", size: "5.1 MB", date: "Oct 20" },
       ],
       assignments: [
-        { id: "csc301-a1", title: "Assignment 1 — Big-O analysis", due: "Oct 18, 2025", points: 20, instructions: "Analyse the time and space complexity of the five algorithms in the handout. Submit a single PDF with your derivations.", seed: "graded", grade: 17, feedback: "Solid work. Q4 should be O(n log n), not O(n²) — review the merge step." },
-        { id: "csc301-a2", title: "Lab 2 — Implement a stack & queue", due: "Nov 1, 2025", points: 15, instructions: "Implement a stack and queue from scratch in C++ with unit tests. Submit your .zip.", seed: "submitted" },
-        { id: "csc301-a3", title: "Assignment 3 — Binary search trees", due: "Nov 22, 2025", points: 25, instructions: "Implement a BST with insert, delete and in-order traversal. Include a short report on balancing.", seed: "open" },
+        { id: "csc301-a1", title: "Assignment 1: Big-O analysis", due: "Oct 18, 2025", points: 20, instructions: "Analyse the time and space complexity of the five algorithms in the handout. Submit a single PDF with your derivations.", seed: "graded", grade: 17, feedback: "Solid work. Q4 should be O(n log n), not O(n²): review the merge step." },
+        { id: "csc301-a2", title: "Lab 2: Implement a stack & queue", due: "Nov 1, 2025", points: 15, instructions: "Implement a stack and queue from scratch in C++ with unit tests. Submit your .zip.", seed: "submitted" },
+        { id: "csc301-a3", title: "Assignment 3: Binary search trees", due: "Nov 22, 2025", points: 25, instructions: "Implement a BST with insert, delete and in-order traversal. Include a short report on balancing.", seed: "open" },
       ],
     },
     "CSC 303": {
       stream: [
-        { who: "Prof. K. Adewale", time: "3 days ago", body: "The scheduling simulation assignment is now posted. Start early — the deadline will not be extended." },
+        { who: "Prof. K. Adewale", time: "3 days ago", body: "The scheduling simulation assignment is now posted. Start early: the deadline will not be extended." },
         { who: "Prof. K. Adewale", time: "2 weeks ago", body: "Install a Linux VM (Ubuntu 22.04 recommended) before next week. We'll be writing shell-level programs." },
       ],
       materials: [
-        { name: "Syllabus — Operating Systems.pdf", type: "PDF", size: "210 KB", date: "Oct 2" },
+        { name: "Syllabus: Operating Systems.pdf", type: "PDF", size: "210 KB", date: "Oct 2" },
         { name: "Processes & threads.pdf", type: "PDF", size: "1.8 MB", date: "Oct 9" },
         { name: "CPU scheduling (slides).pptx", type: "PPTX", size: "4.3 MB", date: "Oct 16" },
       ],
       assignments: [
-        { id: "csc303-a1", title: "Assignment 1 — Process scheduling sim", due: "Oct 25, 2025", points: 30, instructions: "Build a simulator comparing FCFS, SJF and Round Robin. Report average waiting and turnaround times.", seed: "open" },
-        { id: "csc303-a2", title: "Reading response — Deadlocks", due: "Nov 8, 2025", points: 10, instructions: "One-page response to the Coffman conditions reading.", seed: "open" },
+        { id: "csc303-a1", title: "Assignment 1: Process scheduling sim", due: "Oct 25, 2025", points: 30, instructions: "Build a simulator comparing FCFS, SJF and Round Robin. Report average waiting and turnaround times.", seed: "open" },
+        { id: "csc303-a2", title: "Reading response: Deadlocks", due: "Nov 8, 2025", points: 10, instructions: "One-page response to the Coffman conditions reading.", seed: "open" },
       ],
     },
     "CSC 305": {
@@ -301,9 +301,9 @@
         { name: "Sample database.sql", type: "SQL", size: "62 KB", date: "Oct 17" },
       ],
       assignments: [
-        { id: "csc305-a1", title: "ER diagram — Library system", due: "Oct 20, 2025", points: 20, instructions: "Design an ER diagram for a university library. Submit as PDF.", seed: "graded", grade: 19, feedback: "Excellent. Consider a weak entity for loan instances." },
+        { id: "csc305-a1", title: "ER diagram: Library system", due: "Oct 20, 2025", points: 20, instructions: "Design an ER diagram for a university library. Submit as PDF.", seed: "graded", grade: 19, feedback: "Excellent. Consider a weak entity for loan instances." },
         { id: "csc305-a2", title: "SQL query set", due: "Nov 5, 2025", points: 20, instructions: "Write the 12 SQL queries against the sample database.", seed: "open" },
-        { id: "csc305-a3", title: "Project — Normalised schema", due: "Dec 1, 2025", points: 35, instructions: "Submit a 3NF schema for your chosen domain with justification.", seed: "open" },
+        { id: "csc305-a3", title: "Project: Normalised schema", due: "Dec 1, 2025", points: 35, instructions: "Submit a 3NF schema for your chosen domain with justification.", seed: "open" },
       ],
     },
   };
@@ -312,14 +312,14 @@
     if (CLASS_CONTENT[code]) return CLASS_CONTENT[code];
     return {
       stream: [{ who: "Course lecturer", time: "This week", body: "Welcome to " + code + ". Materials and assignments will be posted here through the semester." }],
-      materials: [{ name: code + " — Course outline.pdf", type: "PDF", size: "160 KB", date: "Oct 1" }],
+      materials: [{ name: code + ": Course outline.pdf", type: "PDF", size: "160 KB", date: "Oct 1" }],
       assignments: [{ id: code.toLowerCase().replace(/\s/g, "") + "-a1", title: "Assignment 1", due: "Nov 15, 2025", points: 20, instructions: "Details will be provided in class.", seed: "open" }],
     };
   }
 
   const NEWS = [
     { kind: "News", title: "FUTECH ranked top 5 for engineering research in the region", date: "May 28, 2026" },
-    { kind: "Event", title: "10th Convocation Ceremony — registration now open", date: "Jun 14, 2026" },
+    { kind: "Event", title: "10th Convocation Ceremony: registration now open", date: "Jun 14, 2026" },
     { kind: "Admissions", title: "2026/2027 UTME admission screening dates announced", date: "May 20, 2026" },
   ];
 

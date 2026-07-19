@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Empty, Field, Icon, Modal, ModalHead, PageHead, Ref, Seg, Tag } = window;
-/* Classes / LMS — student side. Approved courses become interactive class spaces. */
+/* Classes / LMS: student side. Approved courses become interactive class spaces. */
 
 function nowStr() {
   return new Date().toLocaleString("en-NG", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -59,7 +59,7 @@ function Classes({ store, actions, go }) {
             <span className="u-icon" style={{ width: 48, height: 48, background: "var(--warning-soft)", color: "oklch(from var(--warning) calc(l - 0.18) c h)" }}><Icon name="lock" size={22} /></span>
             <div className="u-h2">Classes unlock after registration approval</div>
             <div className="u-muted" style={{ maxWidth: 400, fontSize: 14 }}>
-              Once your level adviser approves your course registration, each course opens here as a class space — with the lecturer's materials, assignments and announcements.
+              Once your level adviser approves your course registration, each course opens here as a class space: with the lecturer's materials, assignments and announcements.
             </div>
             <Btn variant="accent" icon="book" onClick={() => go("registration")} style={{ marginTop: 6 }}>Go to course registration</Btn>
           </div>
@@ -98,7 +98,7 @@ function Classes({ store, actions, go }) {
                 <span className="u-meta u-row" style={{ gap: 5 }}><Icon name="doc" size={13} /> {content.materials.length} materials</span>
                 <span className="u-meta u-row" style={{ gap: 5 }}><Icon name="check" size={13} /> {content.assignments.length} tasks</span>
               </div>
-              {next && <div className="u-meta" style={{ color: "var(--fg-muted)" }}>Next due: <strong style={{ color: "var(--fg)" }}>{next.title.replace(/^Assignment \d+ — |^Lab \d+ — /, "")}</strong> · {next.due}</div>}
+              {next && <div className="u-meta" style={{ color: "var(--fg-muted)" }}>Next due: <strong style={{ color: "var(--fg)" }}>{next.title.replace(/^Assignment \d+: |^Lab \d+: /, "")}</strong> · {next.due}</div>}
             </Card>
           );
         })}
@@ -109,11 +109,13 @@ function Classes({ store, actions, go }) {
 
 /* ---------------- detail ---------------- */
 function ClassDetail({ code, store, actions, onBack }) {
-  const { COURSES, classFor } = window.DATA;
+  const { COURSES, classFor, STUDENT } = window.DATA;
   const course = COURSES.find((c) => c.code === code);
   const content = classFor(code);
   const [tab, setTab] = React.useState("stream");
   const [submitFor, setSubmitFor] = React.useState(null);
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const isRep = window.iAmClassRep(store);
 
   const tabs = [
     { value: "stream", label: "Stream" },
@@ -142,6 +144,7 @@ function ClassDetail({ code, store, actions, onBack }) {
               </div>
             </div>
           </div>
+          {isRep && <Btn variant="secondary" size="sm" icon="info" onClick={() => setReportOpen(true)}>Report issue to adviser</Btn>}
         </div>
       </Card>
 
@@ -149,20 +152,51 @@ function ClassDetail({ code, store, actions, onBack }) {
         <Seg value={tab} onChange={setTab} options={tabs} />
       </div>
 
-      {tab === "stream" && <Stream content={content} />}
+      {tab === "stream" && <Stream content={content} store={store} actions={actions} code={code} isRep={isRep} repName={STUDENT.name} />}
       {tab === "materials" && <Materials content={content} />}
-      {tab === "assignments" && <Assignments content={content} store={store} onSubmit={setSubmitFor} />}
+      {tab === "assignments" && <Assignments content={content} store={store} actions={actions} code={code} isRep={isRep} onSubmit={setSubmitFor} />}
 
       {submitFor && (
         <SubmitModal a={submitFor} store={store} actions={actions} onClose={() => setSubmitFor(null)} />
+      )}
+      {reportOpen && (
+        <ReportIssueModal code={code} actions={actions} onClose={() => setReportOpen(false)} />
       )}
     </div>
   );
 }
 
-function Stream({ content }) {
+function Stream({ content, store, actions, code, isRep, repName }) {
+  const repPosts = (store.roles && store.roles.rep && store.roles.rep.posts && store.roles.rep.posts[code]) || [];
+  const [draft, setDraft] = React.useState("");
+  const post = () => { if (draft.trim()) { actions.repPost(code, draft.trim()); setDraft(""); } };
   return (
     <div className="u-stack" style={{ gap: 12, maxWidth: 720 }}>
+      {isRep && (
+        <Card className="u-pad">
+          <div className="u-row" style={{ gap: 8, marginBottom: 8 }}>
+            <Tag variant="accent">Class Rep</Tag>
+            <span className="u-meta">Post a notice: everyone in this class sees it on their stream.</span>
+          </div>
+          <textarea className="fb-textarea" rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="e.g. Venue changed to LH 3 for tomorrow's class…" />
+          <div className="u-row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+            <Btn variant="accent" size="sm" icon="check" disabled={!draft.trim()} onClick={post}>Post notice</Btn>
+          </div>
+        </Card>
+      )}
+      {repPosts.map((p) => (
+        <Card key={p.id} className="u-pad">
+          <div className="u-row" style={{ gap: 11, marginBottom: 10 }}>
+            <Avatar initials={window.DATA.STUDENT.initials} size={36} />
+            <div className="u-grow">
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{window.classRepOf(store) ? window.classRepOf(store).name : "Class rep"}</div>
+              <div className="u-meta">{p.at}</div>
+            </div>
+            <Tag variant="success">Class Rep</Tag>
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--fg-muted)" }}>{p.body}</div>
+        </Card>
+      ))}
       {content.stream.map((p, i) => {
         const initials = p.who.replace(/(Dr\.|Prof\.|Mr\.|Mrs\.|Ms\.)\s*/g, "").trim().split(/\s+/).map((s) => s[0]).slice(0, 2).join("") || "L";
         return (
@@ -180,6 +214,40 @@ function Stream({ content }) {
         );
       })}
     </div>
+  );
+}
+
+/* class rep → adviser issue report */
+function ReportIssueModal({ code, actions, onClose }) {
+  const [category, setCategory] = React.useState("Venue");
+  const [text, setText] = React.useState("");
+  const [sent, setSent] = React.useState(false);
+  const send = () => { actions.repReport({ code, category, text: text.trim() }); setSent(true); };
+  return (
+    <Modal onClose={onClose}>
+      <ModalHead title="Report an issue" sub={code + " · goes to your level adviser"} onClose={onClose} />
+      <div className="u-pad u-stack" style={{ gap: 14 }}>
+        {sent ? (
+          <div className="u-row" style={{ gap: 10, padding: "8px 0" }}>
+            <span className="u-icon" style={{ background: "var(--success-soft)", color: "var(--success)" }}><Icon name="check" size={16} /></span>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>Report sent</div>
+              <div className="u-meta">Dr. C. Madu (300L adviser) will see it on her dashboard.</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Field label="Category">
+              <Seg value={category} onChange={setCategory} options={["Venue", "Lecture", "Materials", "Other"].map((c) => ({ value: c, label: c }))} />
+            </Field>
+            <Field label="What happened?">
+              <textarea className="fb-textarea" rows={3} autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. The projector in LH 1 has been faulty for two weeks…" />
+            </Field>
+            <Btn variant="accent" size="lg" disabled={!text.trim()} onClick={send} style={{ width: "100%" }}>Send to adviser</Btn>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -210,7 +278,8 @@ function Materials({ content }) {
   );
 }
 
-function Assignments({ content, store, onSubmit }) {
+function Assignments({ content, store, actions, code, isRep, onSubmit }) {
+  const reminded = (store.roles && store.roles.rep && store.roles.rep.reminded) || {};
   return (
     <div className="u-stack" style={{ gap: 12, maxWidth: 760 }}>
       {content.assignments.map((a) => {
@@ -248,8 +317,11 @@ function Assignments({ content, store, onSubmit }) {
             )}
 
             {st.status === "open" && (
-              <div className="u-row" style={{ marginTop: 12 }}>
+              <div className="u-row u-wrap" style={{ marginTop: 12, gap: 8 }}>
                 <Btn variant="accent" icon="download" iconRight="arrowRight" onClick={() => onSubmit(a)}>Submit assignment</Btn>
+                {isRep && (reminded[a.id]
+                  ? <Btn variant="ghost" disabled icon="check">Class reminded</Btn>
+                  : <Btn variant="secondary" icon="bell" onClick={() => actions.repRemind(a.id, code, a.title, a.due)}>Remind class</Btn>)}
               </div>
             )}
           </Card>
@@ -290,7 +362,7 @@ function SubmitModal({ a, store, actions, onClose }) {
             <span className="u-icon"><Icon name="download" size={16} /></span>
             <div className="u-grow">
               <div style={{ fontWeight: 500, fontSize: 13.5 }}>{file || "Choose a file to upload"}</div>
-              <div className="u-meta">PDF, ZIP, DOCX — up to 25 MB</div>
+              <div className="u-meta">PDF, ZIP, DOCX: up to 25 MB</div>
             </div>
             {file && <Icon name="check" size={16} style={{ color: "var(--success)" }} />}
           </button>
@@ -303,7 +375,7 @@ function SubmitModal({ a, store, actions, onClose }) {
         <Btn variant="accent" size="lg" disabled={busy} onClick={submit} style={{ width: "100%" }}>
           {busy ? "Submitting…" : "Submit for grading"}
         </Btn>
-        <div className="u-meta" style={{ textAlign: "center" }}>Demo only — your file is not uploaded anywhere.</div>
+        <div className="u-meta" style={{ textAlign: "center" }}>Demo only: your file is not uploaded anywhere.</div>
       </div>
     </Modal>
   );

@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Empty, Field, Icon, Modal, ModalHead, Tag } = window;
-/* Librarian — Add-to-Collection popup, Collections, and combined Catalogue shelf */
+/* Librarian: Add-to-Collection popup, Collections, and combined Catalogue shelf */
 
 /* merge seed catalogue with librarian-added books from the store */
 function allLibBooks(store) {
@@ -49,7 +49,7 @@ function AddToCollectionModal({ store, actions, onClose }) {
     const book = {
       title: form.title.trim(), author: form.author.trim(), publisher: form.publisher.trim(),
       year: Number(form.year) || new Date().getFullYear(), cat: form.cat,
-      call: form.call.trim() || "—", isbn: form.isbn,
+      call: form.call.trim() || "Not available", isbn: form.isbn,
       copies: Number(form.copies) || 1, available: Number(form.copies) || 1, shelf: form.shelf.trim(),
     };
     actions.addLibraryBook(book, colls);
@@ -71,7 +71,7 @@ function AddToCollectionModal({ store, actions, onClose }) {
             <div className="u-grow"><div className="u-h3" style={{ color: "oklch(from var(--success) calc(l - 0.12) c h)" }}>Added to catalogue</div><div className="u-meta">{saved.copies} {saved.copies > 1 ? "copies" : "copy"} catalogued and shelved.</div></div>
           </div>
           <div style={{ marginBottom: 4 }}>
-            {[["Title", saved.title], ["Author", saved.author], ["Publisher", saved.publisher || "—"], ["Year", saved.year], ["Call number", saved.call], ["Copies", saved.copies], ["Shelf", saved.shelf || "Unassigned"]].map(([k, v]) => (
+            {[["Title", saved.title], ["Author", saved.author], ["Publisher", saved.publisher || "Not available"], ["Year", saved.year], ["Call number", saved.call], ["Copies", saved.copies], ["Shelf", saved.shelf || "Unassigned"]].map(([k, v]) => (
               <div key={k} className="u-slip__row" style={{ borderTop: "1px solid var(--border)" }}><span className="k">{k}</span><span className="v">{v}</span></div>
             ))}
           </div>
@@ -109,12 +109,12 @@ function AddToCollectionModal({ store, actions, onClose }) {
               </div>
               {scanState === "found" && (
                 <div className="u-row" style={{ gap: 10, marginTop: 16, padding: "10px 14px", background: "var(--success-soft)", borderRadius: "var(--r-md)" }}>
-                  <Icon name="check" size={16} style={{ color: "var(--success)" }} /><span style={{ fontSize: 13, color: "oklch(from var(--success) calc(l - 0.15) c h)" }}>Match found — review the details below and save.</span>
+                  <Icon name="check" size={16} style={{ color: "var(--success)" }} /><span style={{ fontSize: 13, color: "oklch(from var(--success) calc(l - 0.15) c h)" }}>Match found: review the details below and save.</span>
                 </div>
               )}
               {scanState === "notfound" && (
                 <div className="u-row" style={{ gap: 10, marginTop: 16, padding: "10px 14px", background: "var(--warning-soft)", borderRadius: "var(--r-md)" }}>
-                  <Icon name="info" size={16} style={{ color: "oklch(from var(--warning) calc(l - 0.2) c h)" }} /><span style={{ fontSize: 13, color: "oklch(from var(--warning) calc(l - 0.28) c h)" }}>Not in the lookup database. Fill the details below — the ISBN is kept.</span>
+                  <Icon name="info" size={16} style={{ color: "oklch(from var(--warning) calc(l - 0.2) c h)" }} /><span style={{ fontSize: 13, color: "oklch(from var(--warning) calc(l - 0.28) c h)" }}>Not in the lookup database. Fill the details below: the ISBN is kept.</span>
                 </div>
               )}
             </div>
@@ -209,7 +209,7 @@ function LibraryShelf({ store, actions, go }) {
             <input className="fb-input" style={{ paddingLeft: 36 }} placeholder="Search catalogue…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <Card>
-            <div style={{ overflowX: "auto" }}>
+            <div className="u-table-scroll">
               <table className="u-table">
                 <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Call no.</th><th className="u-right">Available</th></tr></thead>
                 <tbody>
@@ -265,7 +265,7 @@ function LibraryShelf({ store, actions, go }) {
             {collectionBookIds(store, active).length === 0 ? (
               <Empty icon="book" title="No titles yet" sub="Add a book and file it under this collection." />
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="u-table-scroll">
                 <table className="u-table">
                   <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Call no.</th><th className="u-right">Copies</th></tr></thead>
                   <tbody>

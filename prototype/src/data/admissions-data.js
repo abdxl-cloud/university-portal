@@ -1,4 +1,4 @@
-/* Admissions & fresh-student onboarding — data model */
+/* Admissions & fresh-student onboarding: data model */
 (function () {
   const fmt = (n) => "\u20a6" + Number(n).toLocaleString("en-NG");
 
@@ -121,7 +121,7 @@
     { jamb: "20493772ST", name: "David Okafor", score: 233, prog: "csc", gender: "Male", origin: "Imo", issues: ["below_cutoff"] },
     { jamb: "20494663UV", name: "Ngozi Okeke", score: 259, prog: "arc", gender: "Female", origin: "Anambra", issues: [] },
     { jamb: "20410233BC", name: "Tunde Akinyemi Olu", score: 238, prog: "eee", gender: "Male", origin: "Oyo", issues: ["duplicate"] },
-    { jamb: "20495554WX", name: "Yusuf —", score: 271, prog: "mee", gender: "Male", origin: "Bauchi", issues: ["incomplete_name"] },
+    { jamb: "20495554WX", name: "Yusuf :", score: 271, prog: "mee", gender: "Male", origin: "Bauchi", issues: ["incomplete_name"] },
     { jamb: "20496445YZ", name: "Chiamaka Eze", score: 248, prog: "bch", gender: "Female", origin: "Ebonyi", issues: [] },
   ];
 

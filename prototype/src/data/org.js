@@ -1,4 +1,4 @@
-/* Canonical organisational model — the single source of truth for
+/* Canonical organisational model: the single source of truth for
    Faculty → Department → Programme. Everything faculty-scoped derives from here. */
 (function () {
   // Faculties, each owning departments; departments own programmes.
@@ -92,6 +92,5 @@
 
   window.ORG = {
     FACULTIES, facultyById, deptById, facultyOfDept, facultyOf, facultyNameOf, departmentsOf, allDepartments,
-    DEAN_FACULTY: { dean: "computing", dean2: "engineering" }, // which faculty each dean role maps to
   };
 })();

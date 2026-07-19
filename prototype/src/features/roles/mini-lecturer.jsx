@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, CourseManage, Icon, PageHead, RoleHero, StatCards, Switch, Tag } = window;
-/* Mini lecturer hat — used when a Level Adviser or HOD also teaches a course.
+/* Mini lecturer hat: used when a Level Adviser or HOD also teaches a course.
    Deliberately lightweight: reuses the existing 300L CSC advisee roster rather
    than a full standalone teaching dataset, since this is a secondary "hat". */
 
@@ -29,7 +29,7 @@ function MiniLecturerDashboard({ store, actions, go, roleCfg, hat }) {
       <div className="u-adm-jamb-card" style={{ marginBottom: 16 }}>
         <Icon name="info" size={15} style={{ color: "var(--accent-soft-fg)" }} />
         <div className="u-grow" style={{ fontSize: 13 }}>
-          You're viewing your <strong>Lecturer</strong> workload — one course this semester, alongside your main duties. Switch "Acting as" in the sidebar to go back.
+          You're viewing your <strong>Lecturer</strong> workload: one course this semester, alongside your main duties. Switch "Acting as" in the sidebar to go back.
         </div>
       </div>
       <StatCards items={[
@@ -52,8 +52,8 @@ function MiniLecturerCourse({ store, actions, go, hat }) {
   return <CourseManage code={hat.courseCode} store={store} actions={actions} onBack={() => go(hat.backTo || "dashboard")} />;
 }
 
-/* single-course teaching schedule — same weekly grid as the full Teaching Schedule page */
-function MiniLecturerSchedule({ hat }) {
+/* single-course teaching schedule: same weekly grid as the full Teaching Schedule page */
+function MiniLecturerSchedule({ store, hat }) {
   const meta = window.STAFF_DATA.COURSE_META[hat.courseCode] || {};
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const periods = ["8:00", "10:00", "12:00", "14:00", "16:00"];
@@ -73,14 +73,17 @@ function MiniLecturerSchedule({ hat }) {
                 const ev = lectures.find((l) => l.day === d && l.start === p);
                 const covered = lectures.find((l) => l.day === d && l.span === 2 && periods.indexOf(l.start) === pi - 1);
                 if (covered) return null;
+                const evs = window.eventsAt(store || {}, "staff", d, p);
                 return (
-                  <div key={d} style={{ gridRow: ev && ev.span === 2 ? "span 2" : undefined }}>
-                    {ev ? (
-                      <div className="u-tt__ev" style={{ height: "100%" }}>
+                  <div key={d} style={{ gridRow: ev && ev.span === 2 ? "span 2" : undefined, display: "flex", flexDirection: "column" }}>
+                    {ev && (
+                      <div className="u-tt__ev" style={{ flex: 1 }}>
                         <span className="c">{ev.code}</span>
                         <span className="r">{ev.room}</span>
                       </div>
-                    ) : <div className="u-tt__cell" />}
+                    )}
+                    {evs.map((e) => <window.EventChip key={e.id} ev={e} />)}
+                    {!ev && evs.length === 0 && <div className="u-tt__cell" />}
                   </div>
                 );
               })}
@@ -92,7 +95,7 @@ function MiniLecturerSchedule({ hat }) {
   );
 }
 
-/* richer teaching quick-info card for the Adviser/HOD combined dashboard —
+/* richer teaching quick-info card for the Adviser/HOD combined dashboard :
    today's class, submissions to grade, and quick actions (mirrors the lecturer dashboard) */
 function TeachingQuickInfo({ store, go, hat }) {
   const code = hat.teachCode;

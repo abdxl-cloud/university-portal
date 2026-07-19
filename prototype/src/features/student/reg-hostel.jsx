@@ -20,6 +20,8 @@ const MIN_UNITS = 15, MAX_UNITS = 24;
 
 function Registration({ store, actions, go }) {
   const { COURSES } = window.DATA;
+  // the level adviser can adjust these limits from their portal
+  const limits = (store.roles && store.roles.adviser && store.roles.adviser.units) || { min: MIN_UNITS, max: MAX_UNITS };
   const passed = window.DATA.passedCourses();
   const unmetOf = (c) => (c.prereq || []).filter((p) => !passed.has(p));
   const isPrereqLocked = (c) => !c.carryover && unmetOf(c).length > 0;
@@ -29,7 +31,7 @@ function Registration({ store, actions, go }) {
   const se = store.session || {};
   const regOpen = se.registration !== false;
 
-  // registration window closed (and nothing submitted yet) — hard gate
+  // registration window closed (and nothing submitted yet): hard gate
   if (!regOpen && (status === "none" || !status)) {
     return (
       <div className="u-content u-content--narrow">
@@ -61,15 +63,15 @@ function Registration({ store, actions, go }) {
   };
   const selected = COURSES.filter((c) => sel.includes(c.code));
   const units = selected.reduce((s, c) => s + c.units, 0);
-  const overUnder = units < MIN_UNITS ? "under" : units > MAX_UNITS ? "over" : "ok";
+  const overUnder = units < limits.min ? "under" : units > limits.max ? "over" : "ok";
   const locked = status === "pending" || status === "approved";
 
-  const pct = Math.min(100, (units / MAX_UNITS) * 100);
+  const pct = Math.min(100, (units / limits.max) * 100);
 
   return (
     <div className="u-content">
       <PageHead title="Course Registration" sub="2025/2026 · First Semester · 300 Level">
-        {status === "approved" && <Btn variant="secondary" icon="print">Print course form</Btn>}
+        {status === "approved" && <Btn variant="secondary" icon="print" onClick={printRegion}>Print course form</Btn>}
       </PageHead>
 
       {status === "pending" && (
@@ -81,6 +83,19 @@ function Registration({ store, actions, go }) {
               <div style={{ fontSize: 13, color: "oklch(from var(--warning) calc(l - 0.25) c h)" }}>Submitted to Dr. C. Madu (300L adviser). You'll be notified once reviewed.</div>
             </div>
             <Btn variant="secondary" size="sm" onClick={actions.approveRegistration}>▶ Simulate approval</Btn>
+          </div>
+        </Card>
+      )}
+
+      {status === "query" && (
+        <Card className="u-pad" style={{ marginBottom: 16, borderColor: "var(--danger)", background: "var(--danger-soft)" }}>
+          <div className="u-row" style={{ gap: 12 }}>
+            <span className="u-icon" style={{ background: "transparent", color: "var(--danger)" }}><Icon name="info" size={18} /></span>
+            <div className="u-grow">
+              <div className="u-h3" style={{ color: "var(--danger)" }}>Returned by your level adviser</div>
+              <div style={{ fontSize: 13, color: "var(--danger)" }}>Dr. C. Madu sent your course form back for changes. Update your selection below and resubmit.</div>
+              {store.registration.note && <div style={{ fontSize: 13, marginTop: 8, fontStyle: "italic" }}>“{store.registration.note}”</div>}
+            </div>
           </div>
         </Card>
       )}
@@ -102,7 +117,7 @@ function Registration({ store, actions, go }) {
         <Card>
           <div className="u-pad" style={{ paddingBottom: 12 }}>
             <div className="u-h3">Available courses</div>
-            <div className="u-meta" style={{ marginTop: 2 }}>Core courses & carryovers are required. Add electives up to {MAX_UNITS} units.</div>
+            <div className="u-meta" style={{ marginTop: 2 }}>Core courses & carryovers are required. Add electives up to {limits.max} units.</div>
           </div>
           <div className="u-list" style={{ padding: "0 8px 8px" }}>
             {COURSES.map((c) => {
@@ -135,7 +150,7 @@ function Registration({ store, actions, go }) {
                             <React.Fragment key={p}>
                               {i > 0 && ", "}
                               <span style={{ color: ok ? "var(--success)" : "var(--danger)", fontWeight: 500 }}>
-                                {ok ? "✓ " : "✗ "}<span className="fb-mono">{p}</span>
+                                {ok ? "Passed: " : "Required: "}<span className="fb-mono">{p}</span>
                               </span>
                             </React.Fragment>
                           );
@@ -160,7 +175,7 @@ function Registration({ store, actions, go }) {
           <div className="u-h3">Registration summary</div>
           <div className="u-row" style={{ justifyContent: "space-between", marginTop: 14, alignItems: "flex-end" }}>
             <div>
-              <div className="u-stat__v u-num">{units}<span style={{ fontSize: 14, color: "var(--fg-subtle)", fontWeight: 400 }}> / {MAX_UNITS} units</span></div>
+              <div className="u-stat__v u-num">{units}<span style={{ fontSize: 14, color: "var(--fg-subtle)", fontWeight: 400 }}> / {limits.max} units</span></div>
               <div className="u-meta">{selected.length} courses selected</div>
             </div>
             <Tag variant={overUnder === "ok" ? "success" : "warning"} dot>{overUnder === "ok" ? "Valid load" : overUnder === "under" ? "Below min" : "Over max"}</Tag>
@@ -168,7 +183,7 @@ function Registration({ store, actions, go }) {
           <div className="u-bar" style={{ marginTop: 12 }}>
             <div className="u-bar__fill" style={{ width: pct + "%", background: overUnder === "ok" ? "var(--accent)" : "var(--warning)" }} />
           </div>
-          <div className="u-meta" style={{ marginTop: 8 }}>Minimum {MIN_UNITS} · Maximum {MAX_UNITS} units per semester.</div>
+          <div className="u-meta" style={{ marginTop: 8 }}>Minimum {limits.min} · Maximum {limits.max} units per semester · set by your level adviser.</div>
 
           <div className="fb-divider" style={{ margin: "16px 0" }} />
 
@@ -179,7 +194,7 @@ function Registration({ store, actions, go }) {
             </Btn>
           ) : (
             <Btn variant="secondary" size="lg" disabled style={{ width: "100%" }}>
-              {status === "approved" ? "Registration approved ✓" : "Submitted — pending"}
+              {status === "approved" ? "Registration approved" : "Submitted: pending"}
             </Btn>
           )}
           {overUnder !== "ok" && !locked && (
@@ -266,7 +281,7 @@ function Hostel({ store, actions, go }) {
         <Steps current={step} labels={labels} />
       </Card>
 
-      {/* STEP 0 — eligibility / choose hall */}
+      {/* STEP 0: eligibility / choose hall */}
       {step === 0 && (
         <div className="u-stack" style={{ gap: 16 }}>
           <Card className="u-pad" style={{ background: "var(--success-soft)", borderColor: "transparent" }}>
@@ -285,7 +300,7 @@ function Hostel({ store, actions, go }) {
               return (
                 <Card key={h.id} className="u-pad" data-on={hostel?.id === h.id}
                   style={{ cursor: "pointer", borderColor: hostel?.id === h.id ? "var(--accent)" : "var(--border)", boxShadow: hostel?.id === h.id ? "var(--ring)" : undefined }}
-                  onClick={() => { setHostel(h); setBlock(null); setRoom(null); setBed(null); }}>
+                  onClick={() => { setHostel(h); setBlock(h.blocks[0]); setRoom(null); setBed(null); }}>
                   <div className="u-ph" style={{ height: 120, marginBottom: 14 }}>hall exterior photo</div>
                   <div className="u-row" style={{ justifyContent: "space-between" }}>
                     <div className="u-h3">{h.name}</div>
@@ -307,7 +322,7 @@ function Hostel({ store, actions, go }) {
         </div>
       )}
 
-      {/* STEP 1 — choose block + room */}
+      {/* STEP 1: choose block + room */}
       {step === 1 && hostel && (
         <div className="u-stack" style={{ gap: 16 }}>
           <Card className="u-pad">
@@ -345,7 +360,7 @@ function Hostel({ store, actions, go }) {
         </div>
       )}
 
-      {/* STEP 2 — select bed */}
+      {/* STEP 2: select bed */}
       {step === 2 && room && (
         <div className="u-stack" style={{ gap: 16 }}>
           <Card className="u-pad">
@@ -372,7 +387,7 @@ function Hostel({ store, actions, go }) {
         </div>
       )}
 
-      {/* STEP 3 — review + pay */}
+      {/* STEP 3: review + pay */}
       {step === 3 && bed && (
         <div className="u-cols u-cols--aside">
           <Card className="u-pad">
@@ -403,7 +418,7 @@ function Hostel({ store, actions, go }) {
             <Btn variant="accent" size="lg" disabled={processing} onClick={confirmPay} style={{ width: "100%" }}>
               {processing ? "Processing…" : "Pay " + fmt(hostel.pricePerBed)}
             </Btn>
-            <div className="u-meta" style={{ textAlign: "center" }}>Demo only — no real payment is made.</div>
+            <div className="u-meta" style={{ textAlign: "center" }}>Demo only: no real payment is made.</div>
           </div>
         </Modal>
       )}

@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Empty, Icon, SPill, Tag } = window;
-/* Admissions — CANDIDATE status & onboarding screens */
+/* Admissions: CANDIDATE status & onboarding screens */
 
 /* ================= STATUS & DECISION ================= */
 function CandidateStatus({ store, actions, go }) {
@@ -42,7 +42,7 @@ function CandidateStatus({ store, actions, go }) {
         <div className="u-muted" style={{ fontSize: 13.5, marginTop: 10 }}>{st.blurb}</div>
       </Card>
 
-      {/* queried — actionable */}
+      {/* queried: actionable */}
       {a.state === "queried" && (
         <Card className="u-pad" style={{ marginBottom: 16, borderColor: "var(--warning)", background: "var(--warning-soft)" }}>
           <div className="u-row" style={{ gap: 10, marginBottom: 10 }}>
@@ -64,10 +64,10 @@ function CandidateStatus({ store, actions, go }) {
         </Card>
       )}
 
-      {/* admitted — accept offer */}
+      {/* admitted: accept offer */}
       {a.state === "admitted" && (
         <Card className="u-pad" style={{ marginBottom: 16, borderColor: "var(--success)", background: "var(--success-soft)" }}>
-          <div className="u-row" style={{ gap: 10, marginBottom: 8 }}><span className="u-icon" style={{ background: "transparent", color: "var(--success)" }}><Icon name="cap" size={18} /></span><div className="u-h2" style={{ color: "oklch(from var(--success) calc(l - 0.12) c h)" }}>Congratulations — you've been admitted!</div></div>
+          <div className="u-row" style={{ gap: 10, marginBottom: 8 }}><span className="u-icon" style={{ background: "transparent", color: "var(--success)" }}><Icon name="cap" size={18} /></span><div className="u-h2" style={{ color: "oklch(from var(--success) calc(l - 0.12) c h)" }}>Congratulations: you've been admitted!</div></div>
           <div style={{ fontSize: 13.5, color: "oklch(from var(--success) calc(l - 0.2) c h)", marginBottom: 14 }}>You have been offered provisional admission to study <strong>{prog.name}</strong>. Accept your offer to begin onboarding.</div>
           <div className="u-row u-wrap" style={{ gap: 8 }}>
             <Btn variant="accent" icon="check" onClick={actions.admAccept}>Accept offer</Btn>
@@ -149,7 +149,7 @@ function CandidateOnboarding({ store, actions, go }) {
           {[["Candidate", A.ME.name], ["JAMB no.", A.ME.jamb], ["Programme", prog.name], ["Faculty", "Faculty of " + prog.faculty], ["Entry mode", "UTME"], ["UTME score", A.ME.score]].map(([k, v]) => (
             <div key={k} className="u-slip__row" style={{ borderTop: "1px solid var(--border)" }}><span className="k">{k}</span><span className="v">{v}</span></div>
           ))}
-          <Btn variant="secondary" icon="print" style={{ marginTop: 14 }}>Print admission letter</Btn>
+          <Btn variant="secondary" icon="print" style={{ marginTop: 14 }} onClick={() => window.printRegion()}>Print admission letter</Btn>
         </div>
       </Card>
 

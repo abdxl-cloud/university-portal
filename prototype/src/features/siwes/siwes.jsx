@@ -1,6 +1,6 @@
 import React from "react";
 const { Btn, Card, Field, Icon, PageHead, Tag } = window;
-/* Student — SIWES / Industrial Training (400 Level only) */
+/* Student: SIWES / Industrial Training (400 Level only) */
 
 function siwesStatusTag(status) {
   const s = window.SIWES_DATA.SIWES_STATES[status] || window.SIWES_DATA.SIWES_STATES.none;
@@ -123,7 +123,7 @@ function SiwesPlacement({ store, actions, w }) {
         <div className="u-slip__head"><span className="u-icon"><Icon name="building" size={18} /></span><div className="u-grow"><div className="u-h3">Placement details</div></div></div>
         <div className="u-pad">
           {[["Company", p.company], ["Industry", p.industry], ["Address", p.address], ["Supervisor", p.supervisorName], ["Supervisor phone", p.supervisorPhone], ["Supervisor email", p.supervisorEmail], ["Duration", p.startDate + " – " + p.endDate]].map(([k, v]) => (
-            <div key={k} className="u-slip__row" style={{ borderTop: "1px solid var(--border)" }}><span className="k">{k}</span><span className="v">{v || "—"}</span></div>
+            <div key={k} className="u-slip__row" style={{ borderTop: "1px solid var(--border)" }}><span className="k">{k}</span><span className="v">{v || "Not available"}</span></div>
           ))}
         </div>
       </Card>
@@ -209,7 +209,7 @@ function SiwesCheckin({ store, actions, w }) {
           <Btn variant="accent" icon="pin" disabled={checking} onClick={() => doCheckIn(true)}>{checking ? "Locating…" : "Check in now"}</Btn>
           <Btn variant="ghost" size="sm" disabled={checking} onClick={() => doCheckIn(false)}>▶ Simulate off-site attempt</Btn>
         </div>
-        <div className="u-meta" style={{ marginTop: 10 }}>Demo only — location is simulated, not read from your device.</div>
+        <div className="u-meta" style={{ marginTop: 10 }}>Demo only: location is simulated, not read from your device.</div>
       </Card>
 
       <Card>
