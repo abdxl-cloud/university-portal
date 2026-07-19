@@ -9,17 +9,21 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { StoreProvider } from "./store/store";
+import { ThemeProvider } from "./theme";
 
+// The four families the Tweaks panel switches between at runtime (FONT_STACKS
+// in theme.tsx) all load up front: the switch is a CSS-variable change with no
+// opportunity to fetch.
 export const links: Route.LinksFunction = () => [
+  { rel: "preconnect", href: "https://cdn.jsdelivr.net" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
+  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+  { rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@5/index.css" },
+  { rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/@fontsource-variable/geist-mono@5/index.css" },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&display=swap",
   },
 ];
 
@@ -32,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body style={{ fontFamily: "Geist" }}>
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -42,7 +46,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <StoreProvider>
+      <ThemeProvider>
+        <Outlet />
+      </ThemeProvider>
+    </StoreProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
@@ -62,11 +72,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="u-section" style={{ paddingTop: 64 }}>
+      <h1 className="u-h1">{message}</h1>
+      <p className="u-muted">{details}</p>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre style={{ width: "100%", padding: 16, overflowX: "auto" }}>
           <code>{stack}</code>
         </pre>
       )}

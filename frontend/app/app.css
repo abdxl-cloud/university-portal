@@ -1,15 +1,10 @@
+/* Tailwind first, then the portal's own design system, so the `fb-*` tokens win
+   the cascade over preflight. The portal drives dark mode off `data-theme` on
+   `.fb-app` (not `prefers-color-scheme`) and sets `--font-sans` inline, so this
+   file deliberately does not set a body background or a `--font-sans` theme
+   value — doing either fights tokens.css. */
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-}
-
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
-
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
-}
+@import "./styles/base.css";
+@import "./styles/tokens.css";
+@import "./styles/portal.css";
